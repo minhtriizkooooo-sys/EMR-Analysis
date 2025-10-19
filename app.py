@@ -188,7 +188,7 @@ def login():
     if user_id and password:
         session['logged_in'] = True
         session['user_id'] = user_id
-        # ĐÃ XÓA DÒNG flash('Đăng nhập thành công! Chuyển hướng đến Dashboard.', 'success') theo yêu cầu.
+        # Đã xóa flash('Đăng nhập thành công! Chuyển hướng đến Dashboard.', 'success')
         return redirect(url_for('dashboard')) 
 
     flash('Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.', 'danger')
@@ -199,7 +199,7 @@ def logout():
     """Xử lý đăng xuất (Xóa session)."""
     session.pop('logged_in', None)
     session.pop('user_id', None)
-    flash('Bạn đã đăng xuất thành công.', 'success')
+    # Đã xóa flash('Bạn đã đăng xuất thành công.', 'success')
     return redirect(url_for('index'))
 
 @app.route('/dashboard')
@@ -244,7 +244,7 @@ def upload_emr():
             summary_html = generate_html_table(df)
             os.remove(filepath)
 
-            flash(f'Phân tích file "{filename}" thành công!', 'success') 
+            # Đã xóa flash(f'Phân tích file "{filename}" thành công!', 'success') 
             return render_template('emr_profile.html', summary=summary_html, filename=filename)
 
         except Exception as e:
@@ -293,7 +293,7 @@ def upload_image():
         try:
             file.save(filepath)
             
-            # --- LOGIC DỰ ĐOÁN ĐẢM BẢO KẾT QUẢ CỐ ĐỊNH ---
+            # --- LOGIC DỰ ĐOÁN ĐẢM BẢNG KẾT QUẢ CỐ ĐỊNH ---
             
             if filename in NODULE_IMAGES:
                 # Ảnh cố định: Ung thư (Nodule) -> LUÔN CỐ ĐỊNH
@@ -328,7 +328,7 @@ def upload_image():
                 result_html += f"<li class='flex items-start'><div>{icon}</div><div class='flex-1'><strong>{key}:</strong> {value}</div></li>"
             result_html += "</ul>"
             
-            flash(f'Dự đoán ảnh "{filename}" thành công!', 'success')
+            # Đã xóa flash(f'Dự đoán ảnh "{filename}" thành công!', 'success')
             return render_template('emr_prediction.html', result=result_html, image_name=filename)
 
         except Exception as e:
