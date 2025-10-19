@@ -99,8 +99,13 @@
 
                 <form method="POST" action="{{ url_for('emr_prediction') }}" enctype="multipart/form-data" class="space-y-5">
                     <div>
-                        <label for="image-upload" class="block text-sm font-medium text-gray-700 mb-2">Chọn file Hình ảnh (JPEG, PNG):</label>
-                        <input type="file" name="file" id="image-upload" accept="image/*" required
+                        <!-- Đã điều chỉnh Label để liệt kê rõ hơn các định dạng -->
+                        <label for="image-upload" class="block text-sm font-medium text-gray-700 mb-2">
+                            Chọn file Hình ảnh (JPG, PNG, GIF, BMP):
+                        </label>
+                        <input type="file" name="file" id="image-upload" required
+                               <!-- Đã điều chỉnh accept để bao gồm các định dạng phổ biến -->
+                               accept="image/jpeg, image/png, image/gif, image/bmp, .jpg, .jpeg, .png, .gif, .bmp"
                                class="block w-full text-sm text-gray-500
                                file:mr-4 file:py-2 file:px-4
                                file:rounded-full file:border-0
@@ -114,11 +119,12 @@
                     </button>
                 </form>
 
-                {% if filename %}
+                {% if filename and image_b64 %}
                     <div class="mt-6 pt-4 border-t border-gray-200">
                         <p class="text-sm text-gray-600 font-semibold mb-3">Hình ảnh đã tải lên:</p>
                         <div class="flex justify-center p-4 bg-gray-50 rounded-lg">
-                            <img src="{{ url_for('uploaded_file', filename=filename) }}" 
+                            <!-- SỬ DỤNG BASE64 ĐỂ HIỂN THỊ ẢNH TRỰC TIẾP -->
+                            <img src="data:image/jpeg;base64,{{ image_b64 }}" 
                                  alt="Uploaded Image for Prediction"
                                  class="max-w-full max-h-80 object-contain rounded-lg shadow-md"
                                  id="preview-image"/>
@@ -137,17 +143,22 @@
                     <div class="result-box p-6 rounded-xl shadow-lg border-l-8 
                                 {% if prediction.result == 'Nodule' %}
                                     border-red-500 bg-red-50
-                                {% else %}
+                                {% elif prediction.result == 'Non-nodule' %}
                                     border-green-500 bg-green-50
+                                {% else %}
+                                    border-yellow-500 bg-yellow-50
                                 {% endif %}">
                         
                         <div class="flex items-center space-x-4 mb-4">
                             {% if prediction.result == 'Nodule' %}
                                 <i class="fas fa-exclamation-triangle text-5xl text-red-600"></i>
                                 <p class="text-3xl font-extrabold text-red-700">CÓ DẤU HIỆU NODULE</p>
-                            {% else %}
+                            {% elif prediction.result == 'Non-nodule' %}
                                 <i class="fas fa-check-circle text-5xl text-green-600"></i>
                                 <p class="text-3xl font-extrabold text-green-700">KHÔNG CÓ DẤU HIỆU NODULE</p>
+                            {% else %}
+                                <i class="fas fa-question-circle text-5xl text-yellow-600"></i>
+                                <p class="text-3xl font-extrabold text-yellow-700">CHƯA CÓ KẾT QUẢ DỰ ĐOÁN</p>
                             {% endif %}
                         </div>
 
@@ -156,7 +167,7 @@
                         <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-inner">
                             <p class="text-lg font-semibold text-gray-600 mb-1">Xác suất Dự đoán:</p>
                             <p class="text-2xl font-bold 
-                                {% if prediction.result == 'Nodule' %}text-red-600{% else %}text-green-600{% endif %}">
+                                {% if prediction.result == 'Nodule' %}text-red-600{% elif prediction.result == 'Non-nodule' %}text-green-600{% else %}text-yellow-600{% endif %}">
                                 {{ "%.2f"|format(prediction.probability * 100) }}%
                             </p>
                         </div>
@@ -184,20 +195,5 @@
         Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com" class="text-primary-green hover:text-green-800">laingminhtri@gmail.com</a></p>
     </footer>
     
-    <script>
-        // Optional: Simple script to show image preview before upload
-        document.getElementById('image-upload').addEventListener('change', function(event) {
-            const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    // This function is mainly for a pure client-side preview, 
-                    // but since the image is displayed via Flask's route, this is less critical here.
-                    // It's kept as a standard UX practice if a dedicated preview element were used.
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-    </script>
 </body>
 </html>
