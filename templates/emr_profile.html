@@ -13,6 +13,7 @@
             --dark-green: #059669; 
             --light-bg: #f3f4f6;
             --error-color: #EF4444; 
+            --success-color: #10B981;
         }
         
         body { 
@@ -86,9 +87,10 @@
             text-decoration: none;
             cursor: pointer;
         }
-        /* Chỉ định màu sắc cho modal lỗi/cảnh báo */
+        /* Chỉ định màu sắc cho modal lỗi/cảnh báo/thành công */
         .modal-danger { border-top: 5px solid var(--error-color); background-color: #FEF2F2; } 
         .modal-warning { border-top: 5px solid #F59E0B; background-color: #FFFBEB; } 
+        .modal-success { border-top: 5px solid var(--success-color); background-color: #ECFDF5; } 
         
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(-20px); }
@@ -118,7 +120,7 @@
             <div class="bg-white p-6 rounded-xl shadow-lg mb-8">
                 <h3 class="text-xl font-semibold text-gray-700 mb-4">Chọn File Dữ liệu</h3>
                 <form action="{{ url_for('upload_emr') }}" method="post" enctype="multipart/form-data" class="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
-                    <input type="file" name="file" accept=".csv, .xlsx, .xls" required
+                    <input type="file" name="file" id="data-file" accept=".csv, .xlsx, .xls" required
                             class="flex-grow w-full sm:w-auto border border-gray-300 rounded-lg p-2 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
                     
                     <button type="submit"
@@ -165,27 +167,25 @@
         const modalBody = document.getElementById('modalBody');
 
         function showModal(category, message) {
-            // CHỈ HIỂN THỊ MODAL CHO LỖI VÀ CẢNH BÁO
-            if (category !== 'danger' && category !== 'warning') {
-                return; 
-            }
-
             modalContent.className = 'modal-content'; 
             modalContent.classList.add(`modal-${category}`);
 
             let titleText = 'Thông báo';
-            let errorColor = '#EF4444'; // Red-500
-            let warningColor = '#F59E0B'; // Amber-500
-            
+            let color = '#333';
+
             if (category === 'danger') {
                 titleText = 'Lỗi nghiêm trọng 🚨';
-                modalTitle.style.color = errorColor;
+                color = '#EF4444'; 
             } else if (category === 'warning') {
                 titleText = 'Cảnh báo ⚠️';
-                modalTitle.style.color = warningColor;
+                color = '#F59E0B'; 
+            } else if (category === 'success') {
+                titleText = 'Thành công ✅';
+                color = '#10B981'; 
             }
             
             modalTitle.textContent = titleText;
+            modalTitle.style.color = color;
             modalBody.textContent = message;
             modal.style.display = "block";
         }
@@ -205,7 +205,8 @@
             {% if messages %}
                 document.addEventListener('DOMContentLoaded', () => {
                     {% for category, message in messages %}
-                        showModal('{{ category }}', '{{ message }}');
+                        // Hiển thị lần lượt các thông báo (nếu có)
+                        setTimeout(() => showModal('{{ category }}', '{{ message }}'), 100);
                     {% endfor %}
                 });
             {% endif %}
@@ -213,4 +214,3 @@
     </script>
 </body>
 </html>
-
