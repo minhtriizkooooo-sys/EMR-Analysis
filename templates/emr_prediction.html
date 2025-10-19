@@ -1,215 +1,203 @@
+{% macro nav_bar(current_page) %}
+<nav class="w-full bg-primary-green shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center py-3">
+        <div class="text-xl font-bold text-white">EMR Insight AI</div>
+        <div class="flex space-x-6">
+            <a href="{{ url_for('dashboard') }}" class="text-white hover:text-green-200 transition duration-150 py-1 border-b-2 
+               {% if current_page == 'dashboard' %}border-white font-bold{% else %}border-transparent{% endif %}">
+                <i class="fas fa-home mr-1"></i> Dashboard
+            </a>
+            <a href="{{ url_for('emr_profile') }}" class="text-white hover:text-green-200 transition duration-150 py-1 border-b-2
+               {% if current_page == 'profile' %}border-white font-bold{% else %}border-transparent{% endif %}">
+                <i class="fas fa-file-upload mr-1"></i> Phân tích Dữ liệu
+            </a>
+            <a href="{{ url_for('emr_prediction') }}" class="text-white hover:text-green-200 transition duration-150 py-1 border-b-2
+               {% if current_page == 'prediction' %}border-white font-bold{% else %}border-transparent{% endif %}">
+                <i class="fas fa-microscope mr-1"></i> Dự đoán Hình ảnh
+            </a>
+        </div>
+        <div class="flex items-center">
+            <span class="text-white text-sm mr-4 hidden sm:inline">Xin chào, <strong>{{ session['user'] }}</strong></span>
+            <a href="{{ url_for('logout') }}" class="py-1 px-3 bg-white text-primary-green rounded-full hover:bg-gray-200 transition duration-150 font-semibold text-sm">
+                <i class="fas fa-sign-out-alt mr-1"></i> Đăng xuất
+            </a>
+        </div>
+    </div>
+</nav>
+{% endmacro %}
+
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dự đoán Hình ảnh | EMR Insight AI</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
-
-        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
-
-        /* LOGO HEADER */
-        .main-header {
-            width: 100%;
-            height: 100px;
-            background-color: #ffffff;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            margin-bottom: 10px;
-        }
-
-        .logo-container img {
-            max-height: 80px;
-            object-fit: contain;
-        }
-
-        /* Modal Styles */
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); }
-        .modal-content { background-color: #fefefe; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 400px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); text-align: center; animation: fadeIn 0.3s; }
-        .close-btn { color: #aaa; float: right; font-size: 28px; font-weight: bold; line-height: 20px; }
-        .close-btn:hover, .close-btn:focus { color: #000; text-decoration: none; cursor: pointer; }
-        .modal-danger { border-top: 5px solid #EF4444; background-color: #FEF2F2; }
-        .modal-success { border-top: 5px solid #10B981; background-color: #ECFDF5; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* Tải ảnh và hiển thị kết quả */
-        #image-preview { max-width: 100%; height: auto; object-fit: contain; max-height: 300px; display: none; margin: 0 auto; }
-        .prediction-result { display: none; }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dự đoán Hình ảnh Y tế (AI)</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        /* Custom Green Theme */
+        :root {
+            --primary-green: #2e7d32; 
+            --light-green-bg: #e8f5e9; 
+        }
+        .bg-primary-green { background-color: var(--primary-green); }
+        .text-primary-green { color: var(--primary-green); }
+        
+        body {
+            background-color: var(--light-green-bg);
+            font-family: 'Inter', sans-serif;
+            display: flex; 
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        main {
+            flex-grow: 1; 
+        }
+        .result-box {
+            transition: all 0.3s ease-in-out;
+        }
+    </style>
 </head>
 <body>
+    
+    <!-- Header chứa Logo -->
+    <header class="w-full bg-white shadow-md p-4 flex justify-center items-center h-24">
+        <div class="logo-container">
+            <img src="static/Logo_Marie_Curie.png" alt="Logo Marie Curie"
+                 class="max-h-20 w-auto object-contain"
+                 onerror="this.onerror=null; this.src='https://placehold.co/180x80/2e7d32/ffffff?text=EMR+AI+LOGO'">
+        </div>
+    </header>
+    
+    {{ nav_bar('prediction') }}
 
-    <header class="main-header">
-        <div class="logo-container">
-            <img src="static/Logo_Marie_Curie.png" alt="Logo Marie Curie"
-                 onerror="this.onerror=null; this.src='https://placehold.co/150x60/2e7d32/ffffff?text=LOGO'">
-        </div>
-    </header>
+    <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 mt-10">
+        <h1 class="text-4xl font-extrabold text-gray-800 mb-8 border-b-4 border-primary-green pb-3">
+            <i class="fas fa-microscope text-primary-green mr-3"></i> Dự đoán Hình ảnh Y tế (Nodule Detection)
+        </h1>
 
-        <div class="min-h-screen flex flex-col">
-        <header class="bg-indigo-700 text-white shadow-lg">
-            <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-                <a href="{{ url_for('index') }}" class="text-2xl font-bold tracking-tight">EMR Insight AI</a>
-                <div>
-                    <a href="{{ url_for('dashboard') }}" class="ml-4 hover:text-indigo-200 transition duration-150">Dashboard</a>
-                    <a href="{{ url_for('emr_profile') }}" class="ml-4 hover:text-indigo-200 transition duration-150">Phân tích Hồ sơ</a>
-                    <a href="{{ url_for('logout') }}" class="ml-6 bg-red-500 hover:bg-red-600 py-2 px-4 rounded-lg font-medium transition duration-150">
-                        <i class="fas fa-sign-out-alt mr-1"></i> Đăng xuất
-                    </a>
-                </div>
-            </nav>
-        </header>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Upload Panel -->
+            <div class="bg-white p-6 rounded-xl shadow-xl space-y-4 h-fit border-t-4 border-green-600">
+                <h2 class="text-2xl font-semibold text-primary-green mb-4">Tải lên Hình ảnh</h2>
+                
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <div class="space-y-2 mb-4">
+                            {% for category, message in messages %}
+                                <div class="p-3 bg-red-100 text-red-700 border border-red-400 rounded-lg font-medium" role="alert">
+                                    <i class="fas fa-exclamation-circle mr-2"></i> {{ message }}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endwith %}
 
-                <main class="flex-grow max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
-            <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">Dự đoán Chẩn đoán (Phân loại Hình ảnh)</h2>
-            <p class="text-gray-500 mb-8 text-center">Sử dụng mô hình học sâu để phân tích hình ảnh y tế và đưa ra dự đoán.</p>
+                <form method="POST" action="{{ url_for('emr_prediction') }}" enctype="multipart/form-data" class="space-y-5">
+                    <div>
+                        <label for="image-upload" class="block text-sm font-medium text-gray-700 mb-2">Chọn file Hình ảnh (JPEG, PNG):</label>
+                        <input type="file" name="file" id="image-upload" accept="image/*" required
+                               class="block w-full text-sm text-gray-500
+                               file:mr-4 file:py-2 file:px-4
+                               file:rounded-full file:border-0
+                               file:text-sm file:font-semibold
+                               file:bg-green-50 file:text-primary-green
+                               hover:file:bg-green-100 cursor-pointer"/>
+                    </div>
+                    <button type="submit"
+                            class="w-full flex justify-center py-3 px-4 rounded-lg shadow-lg text-sm font-medium text-white bg-primary-green hover:bg-primary-dark-green transition duration-150">
+                        <i class="fas fa-brain mr-2"></i> Dự đoán bằng AI
+                    </button>
+                </form>
 
-            <div class="bg-white p-6 rounded-xl shadow-lg mb-8">
-                <h3 class="text-xl font-semibold text-gray-700 mb-4">Tải lên Hình ảnh để Dự đoán</h3>
-                
-                {# SỬ DỤNG AJAX SUBMIT ĐỂ NHẬN KẾT QUẢ JSON #}
-                <form id="predictionForm" method="post" enctype="multipart/form-data" class="space-y-4">
-                    <label for="image-file" class="block text-sm font-medium text-gray-700">Chọn file ảnh (PNG, JPG, JPEG)</label>
-                    
-                    <input type="file" id="image-file" name="file" accept=".png, .jpg, .jpeg" required
-                        class="w-full border border-gray-300 rounded-lg p-2 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100" onchange="previewImage(event)">
-                    
-                    <button type="submit" id="submitBtn"
-                        class="w-full py-2 px-4 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition duration-200">
-                        <i class="fas fa-upload mr-2"></i> Dự đoán
-                    </button>
-                </form>
-            </div>
+                {% if filename %}
+                    <div class="mt-6 pt-4 border-t border-gray-200">
+                        <p class="text-sm text-gray-600 font-semibold mb-3">Hình ảnh đã tải lên:</p>
+                        <div class="flex justify-center p-4 bg-gray-50 rounded-lg">
+                            <img src="{{ url_for('uploaded_file', filename=filename) }}" 
+                                 alt="Uploaded Image for Prediction"
+                                 class="max-w-full max-h-80 object-contain rounded-lg shadow-md"
+                                 id="preview-image"/>
+                        </div>
+                        <p class="text-sm text-center text-gray-500 mt-2 break-all">{{ filename }}</p>
+                    </div>
+                {% endif %}
+            </div>
 
-            <div id="resultContainer" class="grid md:grid-cols-2 gap-6 prediction-result">
-                <div class="bg-white p-6 rounded-xl shadow-lg flex flex-col items-center">
-                    <h3 class="text-xl font-semibold text-gray-700 mb-4">Hình ảnh đã Tải lên: <span id="imageName"></span></h3>
-                    <img id="image-preview" src="#" alt="Uploaded Image" 
-                         class="max-w-full h-auto rounded-lg shadow-md border-4 border-gray-100">
-                </div>
+            <!-- Prediction Result Panel -->
+            <div class="bg-white p-8 rounded-xl shadow-2xl min-h-[500px]">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">Kết quả Dự đoán AI</h2>
+                
+                {% if prediction %}
+                    <!-- Displaying Prediction Result -->
+                    <div class="result-box p-6 rounded-xl shadow-lg border-l-8 
+                                {% if prediction.result == 'Nodule' %}
+                                    border-red-500 bg-red-50
+                                {% else %}
+                                    border-green-500 bg-green-50
+                                {% endif %}">
+                        
+                        <div class="flex items-center space-x-4 mb-4">
+                            {% if prediction.result == 'Nodule' %}
+                                <i class="fas fa-exclamation-triangle text-5xl text-red-600"></i>
+                                <p class="text-3xl font-extrabold text-red-700">CÓ DẤU HIỆU NODULE</p>
+                            {% else %}
+                                <i class="fas fa-check-circle text-5xl text-green-600"></i>
+                                <p class="text-3xl font-extrabold text-green-700">KHÔNG CÓ DẤU HIỆU NODULE</p>
+                            {% endif %}
+                        </div>
 
-                <div class="bg-white p-6 rounded-xl shadow-lg">
-                    <h3 class="text-2xl font-bold text-pink-600 mb-4 border-b pb-3 flex items-center">
-                        <i class="fas fa-microscope mr-2"></i> Kết quả Dự đoán
-                    </h3>
-                    <div id="predictionResultContent" class="space-y-4">
-                        {# Nội dung kết quả sẽ được chèn bằng JavaScript #}
-                    </div>
-                    <div class="mt-6 p-3 bg-yellow-50 rounded-lg text-sm text-yellow-700 border-l-4 border-yellow-400">
-                        <strong>Lưu ý quan trọng:</strong> Kết quả này là kết quả mô phỏng. Trong y tế, luôn cần xác nhận chuyên môn y tế từ bác sĩ chẩn đoán hình ảnh.
-                    </div>
-                </div>
-            </div>
-        </main>
+                        <p class="text-gray-700 mb-3">Mô hình AI đã phân tích hình ảnh và đưa ra kết quả:</p>
+                        
+                        <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-inner">
+                            <p class="text-lg font-semibold text-gray-600 mb-1">Xác suất Dự đoán:</p>
+                            <p class="text-2xl font-bold 
+                                {% if prediction.result == 'Nodule' %}text-red-600{% else %}text-green-600{% endif %}">
+                                {{ "%.2f"|format(prediction.probability * 100) }}%
+                            </p>
+                        </div>
+                        
+                        <p class="mt-4 text-sm text-gray-500 italic">
+                            *Lưu ý: Kết quả này chỉ mang tính tham khảo và cần được xác nhận bởi bác sĩ chuyên môn.
+                        </p>
+                    </div>
 
-                <footer class="bg-gray-800 text-white py-6 mt-10">
-            <div class="max-w-7xl mx-auto text-center text-gray-400">
-                <p><strong>Liên hệ:</strong><br>
-                Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
-                159 Nam Kỳ Khởi Nghĩa, Phường Xuân Hòa, Tp. Hồ Chí Minh<br>
-                Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a></p>
-            </div>
-        </footer>
-    </div>
-
-        <div id="customModal" class="modal">
-        <div id="modalContent" class="modal-content">
-            <span class="close-btn" onclick="closeModal()">&times;</span>
-            <p id="modalIcon" class="text-3xl mb-3"></p>
-            <h4 id="modalTitle" class="text-lg font-bold mb-2"></h4>
-            <p id="modalBody"></p>
-        </div>
-    </div>
-    
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
-    {# Hiển thị thông báo flash nếu có (sẽ dùng script.js) #}
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <script>
-                {% for category, message in messages %}
-                    showModal('{{ category }}', 'Thông báo', '{{ message | safe }}');
-                {% endfor %}
-            </script>
-        {% endif %}
-    {% endwith %}
-    <script>
-        // Thêm logic dự đoán ảnh
-        document.getElementById('predictionForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const form = e.target;
-            const formData = new FormData(form);
-            const submitBtn = document.getElementById('submitBtn');
-
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Đang dự đoán...';
-
-            fetch(form.action || '{{ url_for("emr_prediction") }}', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    showModal('danger', 'Lỗi Dự đoán', data.error);
-                    document.getElementById('resultContainer').style.display = 'none';
-                } else {
-                    // Hiển thị kết quả
-                    document.getElementById('imageName').textContent = data.filename;
-                    
-                    const resultDiv = document.getElementById('predictionResultContent');
-                    let resultHtml = '';
-                    let isNodule = data.result.includes('Nodule');
-
-                    if (isNodule) {
-                        resultHtml += `<div class="p-4 bg-red-50 border-l-4 border-red-500 text-red-800 font-bold text-lg rounded-lg"><i class="fas fa-exclamation-triangle mr-2"></i> Phân loại: U/Nốt (Nodule)</div>`;
-                    } else {
-                        resultHtml += `<div class="p-4 bg-green-50 border-l-4 border-green-500 text-green-800 font-bold text-lg rounded-lg"><i class="fas fa-check-circle mr-2"></i> Phân loại: Không U/Nốt (Non-nodule)</div>`;
-                    }
-
-                    // Xử lý thông tin Confidence
-                    const confidenceMatch = data.result.match(/confidence: (\d+\.\d+)/);
-                    const confidence = confidenceMatch ? confidenceMatch[1] : 'N/A';
-                    
-                    resultHtml += `<p class="mt-4 text-gray-700">Độ tin cậy của Mô hình: <strong>${confidence}</strong></p>`;
-
-                    if (data.result.includes('(dự đoán model)')) {
-                        resultHtml += `<p class="text-sm text-gray-500 mt-2">Dự đoán này được thực hiện bởi mô hình AI đã được huấn luyện (Keras Model).</p>`;
-                    } else {
-                        resultHtml += `<p class="text-sm text-gray-500 mt-2">Dự đoán này dựa trên Danh sách ảnh cố định trong Backend (Demo Logic).</p>`;
-                    }
-
-                    resultDiv.innerHTML = resultHtml;
-                    document.getElementById('resultContainer').style.display = 'grid';
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showModal('danger', 'Lỗi Kết nối', 'Không thể kết nối với server hoặc xử lý kết quả.');
-            })
-            .finally(() => {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="fas fa-upload mr-2"></i> Dự đoán';
-            });
-        });
-
-        function previewImage(event) {
-            const reader = new FileReader();
-            reader.onload = function(){
-                const output = document.getElementById('image-preview');
-                output.src = reader.result;
-                output.style.display = 'block';
-            }
-            if (event.target.files[0]) {
-                reader.readAsDataURL(event.target.files[0]);
-                document.getElementById('imageName').textContent = event.target.files[0].name;
-            }
-        }
-    </script>
+                {% else %}
+                    <div class="flex flex-col items-center justify-center h-full text-center text-gray-400 p-10">
+                        <i class="fas fa-brain text-8xl mb-4 text-green-300"></i>
+                        <p class="text-xl font-medium">Sẵn sàng để dự đoán...</p>
+                        <p class="text-sm mt-2">Vui lòng tải lên hình ảnh y tế (X-Ray/MRI/CT) để mô hình AI thực hiện phân tích.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </main>
+    
+    <!-- Footer chứa thông tin liên hệ -->
+    <footer class="mt-10 p-4 bg-white text-gray-500 text-xs text-center border-t border-gray-200 shadow-inner">
+        <p><strong>Liên hệ:</strong> Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
+        159 Nam Kỳ Khởi Nghĩa, Phường Xuân Hòa, Tp. Hồ Chí Minh<br>
+        Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com" class="text-primary-green hover:text-green-800">laingminhtri@gmail.com</a></p>
+    </footer>
+    
+    <script>
+        // Optional: Simple script to show image preview before upload
+        document.getElementById('image-upload').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    // This function is mainly for a pure client-side preview, 
+                    // but since the image is displayed via Flask's route, this is less critical here.
+                    // It's kept as a standard UX practice if a dedicated preview element were used.
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    </script>
 </body>
 </html>
