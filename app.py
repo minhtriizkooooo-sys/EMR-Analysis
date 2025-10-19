@@ -31,8 +31,9 @@ app.secret_key = os.getenv('FLASK_SECRET_KEY', 'default_secret_key_for_flash')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# --- 1. XỬ LÝ LỖI IMPORT VÀ LOAD MODEL TỪ DRIVE ID ---
+# --- 1. XỬ LÝ LỖI IMPORT VÀ LOAD MODEL (LAZY LOADING) ---
 
+# Khai báo biến toàn cục nhưng KHÔNG load ngay
 EMR_MODEL = None
 MODEL_LOAD_SUCCESS = False
 DEPENDENCY_ERROR = None
@@ -59,6 +60,7 @@ def check_dependencies_and_load_model():
     
     # 1. Kiểm tra Dependency AI (TensorFlow/Keras)
     try:
+        # Import load_model bên trong hàm để tránh lỗi ImportError khi app khởi động
         from tensorflow.keras.models import load_model 
         print("Dependency check successful: TensorFlow/Keras found.")
     except ImportError as e:
@@ -81,8 +83,15 @@ def check_dependencies_and_load_model():
         print(f"FATAL ERROR: {DEPENDENCY_ERROR}")
         MODEL_LOAD_SUCCESS = False
 
-# Thực hiện kiểm tra và tải model khi ứng dụng khởi động
-check_dependencies_and_load_model()
+# HÀM MỚI: Trả về trạng thái load model
+def get_model_status():
+    global EMR_MODEL, MODEL_LOAD_SUCCESS, DEPENDENCY_ERROR
+    if not MODEL_LOAD_SUCCESS and EMR_MODEL is None:
+        # Nếu model chưa được load, thực hiện load (Lazy Loading)
+        check_dependencies_and_load_model() 
+    
+    # Trả về trạng thái load model
+    return MODEL_LOAD_SUCCESS, DEPENDENCY_ERROR
 
 # --- HÀM HỖ TRỢ CHUNG ---
 
@@ -205,9 +214,10 @@ def upload_emr():
 @app.route('/emr_prediction')
 def emr_prediction():
     """Trang dự đoán EMR chuyên sâu (Phân loại ảnh)."""
-    # Nếu model không load được, flash lỗi ngay khi vào trang
-    if not MODEL_LOAD_SUCCESS:
-        flash(DEPENDENCY_ERROR, 'danger') 
+    # Kỹ thuật Lazy Loading: Chỉ kiểm tra và tải model khi người dùng truy cập trang này
+    is_loaded, error = get_model_status()
+    if not is_loaded:
+        flash(error, 'danger') 
     
     return render_template('emr_prediction.html', result=None, image_name=None)
 
@@ -215,8 +225,10 @@ def emr_prediction():
 @app.route('/upload_image', methods=['POST'])
 def upload_image():
     """Xử lý tải lên ảnh và dự đoán."""
-    if not MODEL_LOAD_SUCCESS:
-        flash("Tính năng dự đoán không khả dụng vì Model AI chưa được tải thành công.", 'danger')
+    # Kỹ thuật Lazy Loading: Chỉ kiểm tra và tải model khi người dùng cố gắng dự đoán
+    is_loaded, error = get_model_status()
+    if not is_loaded:
+        flash("Tính năng dự đoán không khả dụng vì Model AI chưa được tải thành công. Lỗi: " + error, 'danger')
         return redirect(url_for('emr_prediction'))
 
     if 'image' not in request.files:
@@ -268,6 +280,9 @@ def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 
+# XÓA app.run(debug=True) nếu bạn deploy bằng Gunicorn. 
+# Nếu chạy local, bạn có thể thêm lại phần này để test.
 if __name__ == '__main__':
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    # CHỈ CHẠY DÒNG NÀY KHI CHẠY TRÊN LOCAL MACHINE
     app.run(debug=True)
