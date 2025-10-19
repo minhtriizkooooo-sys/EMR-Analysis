@@ -1,11 +1,9 @@
 import os
-import json
 import numpy as np
 import pandas as pd
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from werkzeug.utils import secure_filename
 from functools import wraps
-from io import BytesIO
 
 # --- CẤU HÌNH ỨNG DỤNG VÀ THƯ MỤC ---
 UPLOAD_FOLDER = 'uploads'
@@ -23,6 +21,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # --- DANH SÁCH ẢNH CỐ ĐỊNH KẾT QUẢ DỰ ĐOÁN ---
+# Ảnh phải luôn cho kết quả Nodule (Ung thư)
 NODULE_IMAGES = [
     'Đõ Kỳ Sỹ_1.3.10001.1.1.jpg', 
     'Lê Thị Hải_1.3.10001.1.1.jpg', 
@@ -31,6 +30,7 @@ NODULE_IMAGES = [
     'Phạm Chí Thanh_1.3.10002.2.2.jpg', 
     'Trần Khôi_1.3.10001.1.1.jpg'
 ]
+# Ảnh phải luôn cho kết quả Non-nodule (Không ung thư)
 NON_NODULE_IMAGES = [
     'Nguyễn Danh Hạnh_1.3.10001.1.1.jpg', 
     'Nguyễn Thị Quyến_1.3.10001.1.1.jpg', 
@@ -46,9 +46,8 @@ DEPENDENCY_ERROR = None
 
 def download_blob(file_id, destination_file_name):
     """Giả lập hàm tải file từ Google Drive."""
-    print(f"INFO: Attempting to download model using Drive File ID: {file_id}...")
+    # Giả lập tạo file model rỗng thành công tại local
     try:
-        # Giả lập tạo file model rỗng thành công tại local
         with open(destination_file_name, 'w') as f:
             f.write("MOCK_MODEL_DATA")
         print(f"INFO: Successfully mocked download to local cache: {destination_file_name}")
@@ -61,20 +60,10 @@ def check_dependencies_and_load_model():
     global EMR_MODEL, MODEL_LOAD_SUCCESS, DEPENDENCY_ERROR
 
     try:
-        # Giả lập kiểm tra dependency thành công
-        print("Dependency check successful: TensorFlow/Keras assumed found.")
-    except Exception as e:
-        DEPENDENCY_ERROR = f"Lỗi thư viện AI: {e}. Vui lòng cài đặt thư viện AI."
-        MODEL_LOAD_SUCCESS = False
-        print(f"ERROR: {DEPENDENCY_ERROR}")
-        return
-
-    try:
         download_blob(DRIVE_MODEL_FILE_ID, LOCAL_MODEL_CACHE)
         EMR_MODEL = {"status": "Loaded from Drive ID (Mocked)", "id": DRIVE_MODEL_FILE_ID}
         MODEL_LOAD_SUCCESS = True
         print(f"AI Model loaded successfully (Mocked). ID: {DRIVE_MODEL_FILE_ID}")
-
     except Exception as e:
         DEPENDENCY_ERROR = f"LỖI TẢI/LOAD MODEL: {e}."
         print(f"FATAL ERROR: {DEPENDENCY_ERROR}")
@@ -102,17 +91,16 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# Cập nhật: Sửa lỗi màu chữ cho bảng (text-gray-900)
 def generate_html_table(df):
-    """Tạo bảng HTML tóm tắt và mô phỏng báo cáo chuyên sâu từ DataFrame."""
-    # 1. Bảng 5 dòng đầu tiên
+    """Tạo bảng HTML tóm tắt và mô phỏng báo cáo chuyên sâu từ DataFrame với màu chữ rõ ràng."""
+    # 1. Bảng 5 dòng đầu tiên (Đã sửa màu chữ rõ ràng hơn)
     head_html = df.head(5).to_html(
         classes='w-full text-sm text-left text-gray-900 shadow-md sm:rounded-lg', 
         border=0,
         index=False
     )
 
-    # 2. Bảng Tóm tắt thống kê
+    # 2. Bảng Tóm tắt thống kê (Đã sửa màu chữ rõ ràng hơn)
     desc_df = df.describe(include='all').T.reset_index()
     desc_df.columns = ['Thuộc tính', 'Đếm', 'Giá trị duy nhất', 'Giá trị phổ biến', 'Tần suất', 'Trung bình', 'Std', 'Min', '25%', '50%', '75%', 'Max']
     desc_df = desc_df.fillna('-').iloc[:, :6]
@@ -162,13 +150,18 @@ def generate_html_table(df):
     return html
 
 def mock_predict_with_model(image_filepath):
-    """HÀM MÔ PHỎNG: Dự đoán trên ảnh bằng EMR_MODEL đã tải (cho ảnh không cố định)."""
-    # Mô phỏng kết quả dự đoán của model H5
+    """HÀM MÔ PHỎNG: Dự đoán trên ảnh bằng EMR_MODEL đã tải (mô phỏng logic của model H5)."""
+    
+    # Đây là nơi logic tiền xử lý ảnh và gọi model Keras/TensorFlow (model.predict) sẽ xảy ra.
+    # Hiện tại, chúng ta mô phỏng kết quả đầu ra của model với độ tin cậy ngẫu nhiên.
+    
+    # Mô phỏng kết quả đầu ra của model: Ung thư (Nodule) hoặc Không ung thư (Non-nodule)
     classification_choice = np.random.choice([
         'Ung thư (Nodule)', 
         'Không ung thư (Non-nodule)'
-    ], 1, p=[0.4, 0.6])[0] 
+    ], 1)[0]
     
+    # Mô phỏng độ tin cậy của model
     confidence = np.random.uniform(0.75, 0.88)
     
     if "Non-nodule" in classification_choice:
@@ -195,6 +188,7 @@ def login():
     if user_id and password:
         session['logged_in'] = True
         session['user_id'] = user_id
+        # Thông báo này sẽ hiển thị trên dashboard.html
         flash('Đăng nhập thành công! Chuyển hướng đến Dashboard.', 'success')
         return redirect(url_for('dashboard')) 
 
@@ -300,22 +294,22 @@ def upload_image():
         try:
             file.save(filepath)
             
-            # --- LOGIC DỰ ĐOÁN: HARDCODE HOẶC GỌI MÔ PHỎNG MODEL ---
+            # --- LOGIC DỰ ĐOÁN ĐẢM BẢO KẾT QUẢ CỐ ĐỊNH ---
             
             if filename in NODULE_IMAGES:
-                # Ảnh cố định: Ung thư (Nodule)
+                # Ảnh cố định: Ung thư (Nodule) -> LUÔN CỐ ĐỊNH
                 classification_choice = 'Ung thư (Nodule)'
                 recommendation = "CẦN SINH THIẾT KHẨN CẤP: Kết quả sơ bộ gợi ý khối u ác tính. Cần hội chẩn chuyên sâu."
                 confidence = np.random.uniform(0.97, 0.99)
-                source = "Dự đoán Cố định (Hardcode)"
+                source = "Dự đoán Cố định (Hardcode - Nodule)"
             elif filename in NON_NODULE_IMAGES:
-                # Ảnh cố định: Không ung thư (Non-nodule)
+                # Ảnh cố định: Không ung thư (Non-nodule) -> LUÔN CỐ ĐỊNH
                 classification_choice = 'Không ung thư (Non-nodule)'
                 recommendation = "THEO DÕI ĐỊNH KỲ: Kết quả sơ bộ không phát hiện khối u ác tính. Tiếp tục theo dõi."
                 confidence = np.random.uniform(0.95, 0.98)
-                source = "Dự đoán Cố định (Hardcode)"
+                source = "Dự đoán Cố định (Hardcode - Non-nodule)"
             else:
-                # Ảnh KHÔNG cố định: Gọi mô phỏng dự đoán bằng Model H5
+                # Ảnh KHÔNG cố định: Gọi mô phỏng dự đoán bằng Model H5 (Mô phỏng)
                 classification_choice, confidence, recommendation = mock_predict_with_model(filepath)
                 source = "Dự đoán bằng Model H5 (Mô phỏng)"
                 
@@ -329,9 +323,10 @@ def upload_image():
                 #'Model sử dụng': EMR_MODEL['id']
             }
             
-            result_html = "<ul>"
+            result_html = "<ul class='list-none space-y-3 p-4 bg-gray-50 rounded-lg'>"
             for key, value in mock_predictions.items():
-                result_html += f"<li><strong>{key}:</strong> {value}</li>"
+                icon = '<i class="fas fa-check-circle text-green-500 mr-2"></i>' if 'Thành công' in value or 'Non-nodule' in value else ('<i class="fas fa-exclamation-triangle text-red-500 mr-2"></i>' if 'Nodule' in value else '<i class="fas fa-info-circle text-blue-500 mr-2"></i>')
+                result_html += f"<li class='flex items-start'><div>{icon}</div><div class='flex-1'><strong>{key}:</strong> {value}</div></li>"
             result_html += "</ul>"
             
             flash(f'Dự đoán ảnh "{filename}" thành công!', 'success')
