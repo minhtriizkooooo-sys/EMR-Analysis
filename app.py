@@ -188,8 +188,7 @@ def login():
     if user_id and password:
         session['logged_in'] = True
         session['user_id'] = user_id
-        # Thông báo này sẽ hiển thị trên dashboard.html
-        flash('Đăng nhập thành công! Chuyển hướng đến Dashboard.', 'success')
+        # ĐÃ XÓA DÒNG flash('Đăng nhập thành công! Chuyển hướng đến Dashboard.', 'success') theo yêu cầu.
         return redirect(url_for('dashboard')) 
 
     flash('Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.', 'danger')
@@ -320,7 +319,7 @@ def upload_image():
                 'Độ tin cậy': f"{confidence * 100:.2f}%",
                 'Khuyến nghị': recommendation,
                 'Nguồn dự đoán': source, 
-                #'Model sử dụng': EMR_MODEL['id']
+                'Model sử dụng': EMR_MODEL['id']
             }
             
             result_html = "<ul class='list-none space-y-3 p-4 bg-gray-50 rounded-lg'>"
