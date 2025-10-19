@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # app.py: Ứng dụng Flask Web Service cho EMR và chẩn đoán ảnh
+# Cập nhật: Thêm Caching kết quả dự đoán vào Flask Session.
 
 import base64
 import os
@@ -66,7 +67,7 @@ def allowed_file(filename):
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # Cấu hình model + ảnh cố định
-DRIVE_MODEL_FILE_ID = "1EAZibH-KDkTB09IkHFCvE-db64xtlJZw" # Đã sửa lại ID, nếu file ID cũ có lỗi
+DRIVE_MODEL_FILE_ID = "1EAZibH-KDkTB09IkHFCvE-db64xtlJZw" 
 LOCAL_MODEL_CACHE = "best_weights_model.h5"
 # Tạo folder tạm thời (cần cho tensorflow/keras để tìm đường dẫn, dù ta không lưu ảnh)
 if not os.path.exists('tmp'):
@@ -257,8 +258,7 @@ def emr_profile():
 
 @app.route("/emr_prediction", methods=["GET", "POST"])
 def emr_prediction():
-    """Route xử lý tải lên ảnh và dự đoán bằng model H5. Cập nhật logic: 
-    Nếu dùng model H5 thật, mô phỏng độ tin cậy > 88%."""
+    """Route xử lý tải lên ảnh và dự đoán bằng model H5. Cập nhật: Thêm Caching kết quả."""
     if 'user' not in session:
         flash("Vui lòng đăng nhập trước khi truy cập.", "danger")
         return redirect(url_for("index"))
@@ -285,84 +285,95 @@ def emr_prediction():
             return redirect(url_for("emr_prediction"))
         # ------------------------------------
 
-        try:
-            # Đọc file stream và lưu vào bộ nhớ để sử dụng nhiều lần
-            img_bytes = file.read()
+        
+        # --- 1. KIỂM TRA CACHE TRƯỚC ---
+        # Đảm bảo session có key prediction_cache
+        if 'prediction_cache' not in session:
+            session['prediction_cache'] = {}
             
-            # 1. Base64 conversion for display in HTML
-            image_b64 = base64.b64encode(img_bytes).decode('utf-8')
-            
-            # 2. Prediction Logic (Prioritize hardcoded lists)
-            if filename in NODULE_IMAGES or filename in NONODULE_IMAGES:
-                # Cập nhật logic: Tỷ lệ thay đổi 0.5% bắt đầu từ 97.8%
-                BASE_PROB = 0.978
-                PROB_DECREMENT = 0.005 # 0.5%
-                
-                if filename in NODULE_IMAGES:
-                    index = NODULE_IMAGES.index(filename)
-                    # Xác suất Nodule = 97.8% - (index * 0.5%)
-                    prob_nodule = BASE_PROB - (index * PROB_DECREMENT)
-                    
-                    prediction = {
-                        'result': 'Nodule', 
-                        'probability': prob_nodule
-                    }
-                
-                elif filename in NONODULE_IMAGES:
-                    index = NONODULE_IMAGES.index(filename)
-                    # Xác suất Non-nodule = 97.8% - (index * 0.5%)
-                    prob_non_nodule = BASE_PROB - (index * PROB_DECREMENT)
-                    
-                    prediction = {
-                        'result': 'Non-nodule', 
-                        'probability': prob_non_nodule
-                    }
+        cached_result = session['prediction_cache'].get(filename)
 
+        if cached_result:
+            # Nếu có trong cache, sử dụng kết quả cache và flash thông báo
+            prediction = cached_result['prediction']
+            image_b64 = cached_result['image_b64']
+            flash(f"Kết quả dự đoán cho '{filename}' được lấy từ **bộ nhớ đệm (Cache)**.", "info")
+            
+        else:
+            # --- 2. ĐỌC FILE VÀ TIẾN HÀNH DỰ ĐOÁN MỚI ---
+            try:
+                # Đọc file stream và lưu vào bộ nhớ để sử dụng nhiều lần
+                img_bytes = file.read()
                 
-            else:
-                # Only use H5 model for non-hardcoded files
-                # --- LOGIC ĐÃ SỬA CHỮA/TỐI ƯU HÓA ---
-                mock_prob = 0.925 # Xác suất giả lập mặc định
-                result = 'Unknown'
+                # Base64 conversion for display in HTML
+                image_b64 = base64.b64encode(img_bytes).decode('utf-8')
                 
-                if model is None or not TF_LOADED:
-                    # Nếu model không load được (hoặc thiếu TF/Keras)
-                    # Giả định dự đoán ngẫu nhiên là Nodule hoặc Non-nodule
-                    result = random.choice(['Nodule', 'Non-nodule'])
-                    # MOCK: Giả định độ tin cậy cao
-                    if result == 'Nodule':
-                        prediction = {'result': 'Nodule', 'probability': mock_prob}
-                    else:
-                        prediction = {'result': 'Non-nodule', 'probability': mock_prob}
-                        
-                    # FLASH thông báo lỗi cũ:
-                    flash("Model AI chưa được tải/khởi tạo. Chỉ sử dụng kết quả mô phỏng (92.5%) cho file này.", "warning")
+                # --- LOGIC DỰ ĐOÁN ---
+                if filename in NODULE_IMAGES or filename in NONODULE_IMAGES:
+                    # Logic cho các file cố định (luôn được tính toán lại)
+                    BASE_PROB = 0.978
+                    PROB_DECREMENT = 0.005 # 0.5%
+                    
+                    if filename in NODULE_IMAGES:
+                        index = NODULE_IMAGES.index(filename)
+                        prob_nodule = BASE_PROB - (index * PROB_DECREMENT)
+                        prediction = {'result': 'Nodule', 'probability': prob_nodule}
+                    
+                    elif filename in NONODULE_IMAGES:
+                        index = NONODULE_IMAGES.index(filename)
+                        prob_non_nodule = BASE_PROB - (index * PROB_DECREMENT)
+                        prediction = {'result': 'Non-nodule', 'probability': prob_non_nodule}
+                    
+                    flash(f"Đã sử dụng kết quả mô phỏng cố định cho file: **{filename}**.", "info")
                     
                 else:
-                    # Nếu model load thành công và TF có sẵn, tiến hành dự đoán thật
-                    # Tạo stream mới từ data đã đọc để tiền xử lý ảnh
-                    file_stream_for_model = io.BytesIO(img_bytes)
-                    x = preprocess_image(file_stream_for_model)
+                    # Logic cho file BÊN NGOÀI danh sách cố định (Mock/Real Model)
+                    mock_prob = 0.925 # Xác suất giả lập mặc định
                     
-                    preds = model.predict(x, verbose=0)
-                    score = preds[0][0] # Giả định 1.0 là Nodule, 0.0 là Non-nodule
-                    
-                    if score > 0.5:
-                        # Dùng kết quả thật của model, nhưng làm tròn/giả lập nhẹ để tránh số quá phức tạp
-                        prediction = {'result': 'Nodule', 'probability': float(score)}
+                    if model is None or not TF_LOADED:
+                        # Model không load được (MOCK 92.5%)
+                        result = random.choice(['Nodule', 'Non-nodule'])
+                        if result == 'Nodule':
+                            prediction = {'result': 'Nodule', 'probability': mock_prob}
+                        else:
+                            prediction = {'result': 'Non-nodule', 'probability': mock_prob} 
+                        
+                        # Thay thế thông báo khó hiểu cũ
+                        flash("Model AI chưa load. Dự đoán được mô phỏng với độ tin cậy 92.5%.", "warning")
+                        
                     else:
-                        prediction = {'result': 'Non-nodule', 'probability': float(1.0 - score)}
-                    
-                # --- KẾT THÚC LOGIC ĐÃ SỬA CHỮA/TỐI ƯU HÓA ---
-
-
-        except Exception as e:
-            # Bắt lỗi xử lý ảnh/model
-            print(f"Lỗi xử lý ảnh bằng model: {e}")
-            flash(f"Lỗi xử lý ảnh bằng model: {e}", "danger")
-            return redirect(url_for("emr_prediction"))
-
+                        # Model load thành công (Dự đoán THẬT)
+                        file_stream_for_model = io.BytesIO(img_bytes)
+                        x = preprocess_image(file_stream_for_model)
+                        
+                        preds = model.predict(x, verbose=0)
+                        score = preds[0][0] # Giả định 1.0 là Nodule, 0.0 là Non-nodule
+                        
+                        if score > 0.5:
+                            prediction = {'result': 'Nodule', 'probability': float(score)}
+                        else:
+                            prediction = {'result': 'Non-nodule', 'probability': float(1.0 - score)}
+                            
+                        flash(f"Dự đoán bằng Model H5 thành công. Độ tin cậy: {prediction['probability']:.2%}.", "success")
+                
+                
+                # --- 3. LƯU KẾT QUẢ VÀO CACHE CHO CÁC LẦN TẢI SAU ---
+                # Chỉ lưu vào cache nếu file KHÔNG nằm trong danh sách cố định 
+                if filename not in NODULE_IMAGES and filename not in NONODULE_IMAGES:
+                    session['prediction_cache'][filename] = {
+                        'prediction': prediction,
+                        'image_b64': image_b64 
+                    }
+                
+                
+            except Exception as e:
+                # Bắt lỗi xử lý ảnh/model
+                print(f"Lỗi xử lý ảnh bằng model: {e}")
+                flash(f"Lỗi xử lý ảnh: {e}", "danger")
+                return redirect(url_for("emr_prediction"))
+                
     # Giả định có file emr_prediction.html
+    # Luôn trả về prediction và image_b64 nếu POST thành công
     return render_template('emr_prediction.html', prediction=prediction, filename=filename, image_b64=image_b64)
 
 
@@ -370,6 +381,8 @@ def emr_prediction():
 def logout():
     """Route đăng xuất."""
     session.pop('user', None)
+    # Xóa cache khi đăng xuất 
+    session.pop('prediction_cache', None) 
     flash("Đã đăng xuất.", "success")
     return redirect(url_for("index"))
 
