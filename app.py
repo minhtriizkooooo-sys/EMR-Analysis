@@ -23,7 +23,6 @@ ALLOWED_EXTENSIONS_DATA = {'csv', 'xlsx', 'xls'}
 ALLOWED_EXTENSIONS_IMAGE = {'png', 'jpg', 'jpeg', 'gif'}
 
 # --- CẤU HÌNH GOOGLE DRIVE FILE ID BẰNG BIẾN MÔI TRƯỜNG --- 
-# Dùng ID thật của bạn làm giá trị mặc định
 DRIVE_MODEL_FILE_ID = os.getenv('DRIVE_MODEL_FILE_ID', '1EAZibH-KDkTB09IkHFCvE-db64xtfJZw') 
 LOCAL_MODEL_CACHE = 'best_weights_model.h5' 
 
@@ -41,7 +40,6 @@ DEPENDENCY_ERROR = None
 def download_blob(file_id, destination_file_name):
     """
     Giả lập hàm tải file từ Google Drive. 
-    Trong môi trường thực tế, ID file này cần quyền truy cập công khai hoặc xác thực OAuth.
     """
     print(f"INFO: Attempting to download model using Drive File ID: {file_id}...")
 
@@ -53,7 +51,6 @@ def download_blob(file_id, destination_file_name):
         print(f"INFO: Successfully mocked download to local cache: {destination_file_name}")
         return True
     except Exception as e:
-        # Lỗi này chỉ xảy ra nếu không thể tạo/ghi file trên hệ thống
         raise Exception(f"Lỗi khi ghi file mock: {e}")
 
 def check_dependencies_and_load_model():
@@ -73,8 +70,6 @@ def check_dependencies_and_load_model():
     # 2. Thực hiện tải file model từ Drive ID (hoặc Mocking)
     try:
         download_blob(DRIVE_MODEL_FILE_ID, LOCAL_MODEL_CACHE)
-        
-        # EMR_MODEL = load_model(LOCAL_MODEL_CACHE) # Dùng lệnh này khi có file model thật
         
         # --- MOCKING: Giả lập tải model thành công ---
         EMR_MODEL = {"status": "Loaded from Drive ID (Mocked)", "id": DRIVE_MODEL_FILE_ID}
@@ -96,17 +91,41 @@ def allowed_file(filename, allowed_extensions):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
 
 def generate_html_table(df):
-    """Tạo bảng HTML tóm tắt từ DataFrame."""
-    head_html = df.head(5).to_html(classes='data-table', border=0, index=False)
+    """Tạo bảng HTML tóm tắt từ DataFrame với định dạng Tailwind."""
+    # 1. Bảng 5 dòng đầu tiên
+    head_html = df.head(5).to_html(
+        classes='w-full text-sm text-left text-gray-700 dark:text-gray-200 shadow-md sm:rounded-lg', 
+        border=0, 
+        index=False
+    )
+    
+    # 2. Bảng Tóm tắt thống kê
     desc_df = df.describe(include='all').T.reset_index()
     desc_df.columns = ['Thuộc tính', 'Đếm', 'Giá trị duy nhất', 'Giá trị phổ biến', 'Tần suất', 'Trung bình', 'Std', 'Min', '25%', '50%', '75%', 'Max']
-    desc_df = desc_df.fillna('-').iloc[:, :6] 
-    desc_html = desc_df.to_html(classes='summary-table', border=0, index=False)
+    desc_df = desc_df.fillna('-').iloc[:, :6]
     
+    # Tạo HTML thủ công để dễ kiểm soát styling Tailwind
+    desc_html = '<div class="overflow-x-auto"><table class="w-full text-sm text-left text-gray-700 dark:text-gray-200 shadow-md sm:rounded-lg">'
+    desc_html += '<thead class="text-xs text-white uppercase bg-indigo-700">'
+    desc_html += '<tr>' + ''.join([f'<th scope="col" class="px-4 py-3">{col}</th>' for col in desc_df.columns]) + '</tr>'
+    desc_html += '</thead><tbody>'
+    
+    for index, row in desc_df.iterrows():
+        bg_class = 'bg-white border-b hover:bg-gray-50' if index % 2 == 0 else 'bg-gray-50 border-b hover:bg-gray-100'
+        desc_html += f'<tr class="{bg_class}">'
+        for col in desc_df.columns:
+            if col == 'Thuộc tính':
+                desc_html += f'<th scope="row" class="px-4 py-4 font-medium text-gray-900 whitespace-nowrap">{row[col]}</th>'
+            else:
+                desc_html += f'<td class="px-4 py-4">{row[col]}</td>'
+        desc_html += '</tr>'
+        
+    desc_html += '</tbody></table></div>'
+
     html = f"""
-        <h3>5 dòng dữ liệu đầu tiên:</h3>
-        {head_html}
-        <h3>Tóm tắt thống kê:</h3>
+        <h3 class="text-xl font-semibold text-gray-700 mb-4">5 dòng dữ liệu đầu tiên:</h3>
+        <div class="overflow-x-auto mb-8">{head_html}</div>
+        <h3 class="text-xl font-semibold text-gray-700 mb-4">Tóm tắt thống kê:</h3>
         {desc_html}
     """ 
     return html
@@ -122,9 +141,14 @@ def index():
 @app.route('/login', methods=['POST'])
 def login():
     """Xử lý đăng nhập (MOCK) và điều hướng đến Dashboard."""
-    # Logic xác thực sẽ ở đây
-    flash('Đăng nhập thành công! Chuyển hướng đến Dashboard.', 'success')
+    # flash('Đăng nhập thành công! Chuyển hướng đến Dashboard.', 'success') # Đã loại bỏ flash thành công
     return redirect(url_for('dashboard'))
+
+@app.route('/logout')
+def logout():
+    """Xử lý đăng xuất (MOCK)."""
+    # flash('Bạn đã đăng xuất thành công.', 'success') # Đã loại bỏ flash thành công
+    return redirect(url_for('index'))
 
 @app.route('/dashboard')
 def dashboard():
@@ -142,7 +166,7 @@ def emr_profile():
 def upload_emr():
     """Xử lý tải lên file EMR (CSV/Excel) và phân tích."""
     if 'file' not in request.files:
-        flash('Không có phần file trong request.', 'warning')
+        flash('Không có phần file trong request.', 'danger')
         return redirect(url_for('emr_profile'))
     
     file = request.files['file']
@@ -165,10 +189,12 @@ def upload_emr():
             summary_html = generate_html_table(df)
             os.remove(filepath)
 
-            flash(f'Phân tích file "{filename}" thành công!', 'success')
+            # flash(f'Phân tích file "{filename}" thành công!', 'success') # Đã loại bỏ flash thành công
             return render_template('emr_profile.html', summary=summary_html, filename=filename)
 
         except Exception as e:
+            if os.path.exists(filepath):
+                os.remove(filepath)
             flash(f'Lỗi khi xử lý file EMR: {e}', 'danger')
             return redirect(url_for('emr_profile'))
     else:
@@ -179,6 +205,7 @@ def upload_emr():
 @app.route('/emr_prediction')
 def emr_prediction():
     """Trang dự đoán EMR chuyên sâu (Phân loại ảnh)."""
+    # Nếu model không load được, flash lỗi ngay khi vào trang
     if not MODEL_LOAD_SUCCESS:
         flash(DEPENDENCY_ERROR, 'danger') 
     
@@ -193,7 +220,7 @@ def upload_image():
         return redirect(url_for('emr_prediction'))
 
     if 'image' not in request.files:
-        flash('Không có file ảnh nào được tải lên.', 'warning')
+        flash('Không có file ảnh nào được tải lên.', 'danger')
         return redirect(url_for('emr_prediction'))
 
     file = request.files['image']
@@ -216,16 +243,17 @@ def upload_image():
                 'Model sử dụng': EMR_MODEL['id'] 
             }
             
-            # ĐÃ SỬA LỖI CÚ PHÁP: Tạo HTML bằng cấu trúc <ul>/<li> chuẩn
             result_html = "<ul>"
             for key, value in mock_predictions.items():
                 result_html += f"<li><strong>{key}:</strong> {value}</li>"
             result_html += "</ul>"
             
-            flash(f'Dự đoán ảnh "{filename}" thành công!', 'success')
+            # flash(f'Dự đoán ảnh "{filename}" thành công!', 'success') # Đã loại bỏ flash thành công
             return render_template('emr_prediction.html', result=result_html, image_name=filename)
 
         except Exception as e:
+            if os.path.exists(filepath):
+                os.remove(filepath)
             flash(f'Lỗi khi xử lý hoặc dự đoán ảnh: {e}', 'danger')
             return redirect(url_for('emr_prediction'))
     else:
