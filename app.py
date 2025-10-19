@@ -1,18 +1,18 @@
 from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, flash
 import os
 import secrets
-import shutil
 import pandas as pd
 import numpy as np
+from PIL import Image
+from werkzeug.utils import secure_filename
 # Dùng try-except để đảm bảo load_model không làm crash app nếu TF/Keras lỗi
 try:
     from keras.models import load_model 
-except ImportError:
-    print("❌ Lỗi: Keras/Tensorflow chưa được cài đặt hoặc import.")
+    import gdown # Thư viện tải file từ Drive
+except ImportError as e:
+    print(f"❌ Lỗi: Keras/Tensorflow/gdown chưa được cài đặt hoặc import. Chi tiết: {e}")
     load_model = None 
-
-from PIL import Image
-from werkzeug.utils import secure_filename
+    gdown = None
 
 # =============================
 # Cấu hình Flask
@@ -24,51 +24,50 @@ app.config['ALLOWED_EXTENSIONS'] = {'csv', 'xlsx', 'xls', 'jpg', 'jpeg', 'png'}
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 MODEL_FOLDER = 'models'
-# Sử dụng lại tên model đã ghép
-MERGED_MODEL_PATH = os.path.join(MODEL_FOLDER, 'best_weights_model_merged.keras') 
+# Tên file model sẽ được tải về
+DOWNLOADED_MODEL_NAME = 'best_weights_model.h5' 
+
+# !!! ĐẢM BẢO THAY THẾ ID FILE DƯỚI ĐÂY BẰNG ID CỦA BẠN !!!
+# ID file best_weights_model.h5 trên Google Drive của bạn (phải chia sẻ công khai)
+DRIVE_FILE_ID = '1EAZibH-KDkTB09IkHFCvE-db64xtfJZw' 
+
+MODEL_PATH = os.path.join(MODEL_FOLDER, DOWNLOADED_MODEL_NAME) 
+
+os.makedirs(MODEL_FOLDER, exist_ok=True)
 
 # =============================
-# Hàm tiện ích
+# Tải model từ Google Drive
 # =============================
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
-
-# =============================
-# Ghép các phần model keras (Sử dụng tên file gốc: best_weights_model.keras.001 - .004)
-# =============================
-def merge_model_files():
-    # SỬ DỤNG LẠI TÊN FILE ZIPPED BAN ĐẦU
-    parts = [
-        os.path.join(MODEL_FOLDER, f"best_weights_model.keras.{i:03d}")
-        for i in range(1, 5)
-    ]
-    
-    missing_files = [p for p in parts if not os.path.exists(p)]
-    
-    if missing_files:
-        print("==================================================")
-        print("⚠️ THIẾU FILE MODEL QUAN TRỌNG TRONG MÔI TRƯỜNG RENDER!")
-        print(f"Thư mục hiện tại: {os.getcwd()}")
-        print(f"Các file model CẦN có: {parts}")
-        print(f"Các file model BỊ THIẾU: {missing_files}")
-        print("⚠️ Vui lòng đảm bảo các file này đã được commit vào thư mục 'models'.")
-        print("==================================================")
+def download_model_from_drive():
+    # Kiểm tra cấu hình bắt buộc
+    if not gdown or DRIVE_FILE_ID == '1EAZibH-KDkTB09IkHFCvE-db64xtfJZw':
+        print("⚠️ Gdown chưa được import hoặc DRIVE_FILE_ID chưa được cập nhật trong app.py.")
         return None
-    
-    if os.path.exists(MERGED_MODEL_PATH):
-        print("✅ Model đã được ghép. Bỏ qua bước ghép.")
-        return MERGED_MODEL_PATH
 
-    print("🔧 Ghép model...")
+    # Nếu file đã tồn tại, không tải lại
+    if os.path.exists(MODEL_PATH):
+        print("✅ File model đã tồn tại. Bỏ qua tải xuống.")
+        return MODEL_PATH
+
+    print(f"🔧 Bắt đầu tải file model từ Google Drive (ID: {DRIVE_FILE_ID})...")
+    
     try:
-        with open(MERGED_MODEL_PATH, "wb") as merged:
-            for part in parts:
-                with open(part, "rb") as f:
-                    shutil.copyfileobj(f, merged)
-        print("✅ Đã ghép xong model.")
-        return MERGED_MODEL_PATH
+        # Tải xuống file từ Drive
+        gdown.download(
+            id=DRIVE_FILE_ID, 
+            output=MODEL_PATH, 
+            quiet=False, 
+            fuzzy=True,
+            use_cookies=False
+        )
+        if os.path.exists(MODEL_PATH):
+            print(f"✅ Tải model thành công. Kích thước: {os.path.getsize(MODEL_PATH) / (1024*1024):.2f} MB")
+            return MODEL_PATH
+        else:
+            print("❌ Lỗi: gdown không tạo ra file model. Kiểm tra quyền chia sẻ Drive (phải là 'Anyone with the link').")
+            return None
     except Exception as e:
-        print(f"❌ Lỗi khi ghép model (Có thể do IO/Permission): {e}")
+        print(f"❌ Lỗi khi tải model từ Drive: {e}")
         return None
 
 # =============================
@@ -76,29 +75,30 @@ def merge_model_files():
 # =============================
 model = None
 if load_model: 
-    MODEL_PATH = merge_model_files()
-    if MODEL_PATH:
+    MODEL_FILE_PATH = download_model_from_drive()
+    if MODEL_FILE_PATH:
         try:
-            model = load_model(MODEL_PATH) 
+            # Load model từ file .h5 đã tải về
+            model = load_model(MODEL_FILE_PATH) 
             print("✅ Model y tế đã load thành công.")
         except Exception as e:
-            print("❌ Lỗi khi load model:", e)
-            print("❌ Lỗi này có thể do xung đột phiên bản Keras/Tensorflow. Hãy kiểm tra logs build.")
+            print("❌ Lỗi khi load model sau khi tải:", e)
+            print("❌ Lỗi này có thể do file model bị hỏng hoặc lỗi TF/Keras. Vui lòng kiểm tra lại file gốc.")
             model = None
 else:
     print("❌ Model không thể load do Keras/Tensorflow không được import.")
     
 
 # =============================
-# Trang chủ (Đăng nhập)
+# Các route Flask (Không thay đổi)
 # =============================
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
-# =============================
-# Xử lý đăng nhập
-# =============================
 @app.route('/login', methods=['POST'])
 def login():
     username = request.form.get('userID')
@@ -113,9 +113,6 @@ def login():
         flash('Sai tài khoản hoặc mật khẩu!', 'danger')
         return redirect(url_for('index'))
 
-# =============================
-# Trang Dashboard
-# =============================
 @app.route('/dashboard')
 def dashboard():
     if not session.get('logged_in'):
@@ -123,9 +120,6 @@ def dashboard():
         return redirect(url_for('index'))
     return render_template('dashboard.html', username=session.get('username'))
 
-# =============================
-# Trang phân tích hồ sơ EMR
-# =============================
 @app.route('/emr_profile')
 def emr_profile():
     if not session.get('logged_in'):
@@ -133,9 +127,6 @@ def emr_profile():
         return redirect(url_for('index'))
     return render_template('emr_profile.html')
 
-# =============================
-# Upload & phân tích hồ sơ EMR
-# =============================
 @app.route('/upload_emr', methods=['POST'])
 def upload_emr():
     if not session.get('logged_in'):
@@ -168,9 +159,6 @@ def upload_emr():
 
     return render_template('emr_profile.html', summary=summary, filename=file.filename)
 
-# =============================
-# Trang phân tích ảnh y tế
-# =============================
 @app.route('/emr_prediction')
 def emr_prediction():
     if not session.get('logged_in'):
@@ -178,9 +166,6 @@ def emr_prediction():
         return redirect(url_for('index'))
     return render_template('emr_prediction.html')
 
-# =============================
-# Upload ảnh y tế & Dự đoán
-# =============================
 @app.route('/upload_image', methods=['POST'])
 def upload_image():
     if not session.get('logged_in'):
@@ -205,6 +190,7 @@ def upload_image():
     prediction_result = None
     
     if model is None:
+        # Thông báo lỗi load model cho người dùng
         flash('❌ Hệ thống AI chưa được tải. Vui lòng kiểm tra logs để xem model bị thiếu file hay lỗi import thư viện.', 'danger')
         return render_template('emr_prediction.html', result=None) 
     
@@ -243,24 +229,15 @@ def upload_image():
         result=prediction_result 
     )
 
-# =============================
-# Đăng xuất
-# =============================
 @app.route('/logout')
 def logout():
     session.clear()
     flash('Bạn đã đăng xuất.', 'info')
     return redirect(url_for('index'))
 
-# =============================
-# Serve file upload
-# =============================
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
-# =============================
-# Chạy app
-# =============================
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
