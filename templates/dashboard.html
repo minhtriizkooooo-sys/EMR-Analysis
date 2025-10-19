@@ -12,27 +12,51 @@
             padding: 0;
             min-height: 100vh;
         }
+
+        /* HEADER CÓ LOGO CĂN GIỮA */
+        .main-header {
+            width: 100%;
+            height: 100px;
+            background-color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .logo-container img {
+            max-height: 80px;
+            height: auto;
+            width: auto;
+            object-fit: contain;
+        }
+
         .container { 
             max-width: 700px; 
-            margin: 50px auto; /* CĂN GIỮA */
+            margin: 0 auto; 
             background: #fff; 
             padding: 30px; 
             border-radius: 10px; 
             box-shadow: 0 0 20px rgba(0,0,0,0.1); 
             text-align: center;
         }
+
         h1 { 
             color: #2e7d32; 
             margin-bottom: 30px; 
         }
+
         .menu ul {
             list-style: none;
             padding: 0;
             margin: 0;
         }
+
         .menu li {
             margin-bottom: 20px;
         }
+
         .menu a {
             display: block;
             background-color: #4caf50; /* Xanh lá đậm */
@@ -44,18 +68,12 @@
             font-weight: 600;
             transition: background-color 0.3s, transform 0.1s;
         }
+
         .menu a:hover {
             background-color: #2e7d32;
             transform: translateY(-2px);
         }
-        .contact { 
-            margin-top: 40px; 
-            font-size: 14px; 
-            border-top: 1px solid #eee;
-            padding-top: 20px;
-            color: #666;
-            text-align: center;
-        }
+
         .btn-dashboard {
             background-color: #81c784; 
             color: #333;
@@ -65,19 +83,32 @@
             display: inline-block;
             margin-top: 20px;
         }
+
         .btn-dashboard:hover {
             background-color: #a5d6a7;
+        }
+
+        .contact { 
+            margin-top: 40px; 
+            font-size: 14px; 
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+            color: #666;
+            text-align: center;
         }
     </style>
 </head>
 <body>
-    <!-- NEW HEADER WITH LOGO -->
+
+    <!-- HEADER VỚI LOGO CĂN GIỮA -->
     <header class="main-header">
         <div class="logo-container">
-            <img src="static/Logo_Marie_Curie.png" alt="Logo Marie Curie" onerror="this.onerror=null; this.src='https://placehold.co/150x60/2e7d32/ffffff?text=LOGO'">
+            <img src="static/Logo_Marie_Curie.png" alt="Logo Marie Curie" 
+                 onerror="this.onerror=null; this.src='https://placehold.co/150x60/2e7d32/ffffff?text=LOGO'">
         </div>
     </header>
-    
+
+    <!-- NỘI DUNG CHÍNH -->
     <div class="container">
         <h1>Dashboard - Phân tích Hồ sơ EMR</h1>
         
@@ -102,5 +133,6 @@
                 Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a></p>
         </div>
     </div>
+
 </body>
 </html>
