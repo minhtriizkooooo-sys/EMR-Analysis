@@ -262,7 +262,7 @@ def emr_prediction():
             else:
                 # Only use H5 model for non-hardcoded files
                 if model is None:
-                    flash("Model chưa được load, không thể dự đoán file ngoài danh sách.", "danger")
+                    flash("Model chưa được load, không thể dự đoán ", "danger")
                     # Dùng kết quả giả lập nếu không có model
                     prediction = {'result': 'Unknown', 'probability': 0.5} 
                 else:
@@ -298,3 +298,4 @@ def logout():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
