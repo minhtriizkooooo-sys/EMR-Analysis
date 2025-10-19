@@ -319,7 +319,7 @@ def upload_image():
                 'Độ tin cậy': f"{confidence * 100:.2f}%",
                 'Khuyến nghị': recommendation,
                 'Nguồn dự đoán': source, 
-                'Model sử dụng': EMR_MODEL['id']
+                #'Model sử dụng': EMR_MODEL['id']
             }
             
             result_html = "<ul class='list-none space-y-3 p-4 bg-gray-50 rounded-lg'>"
@@ -351,4 +351,5 @@ def uploaded_file(filename):
 if __name__ == '__main__':
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     app.run(debug=True)
+
 
