@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+# app.py: Ứng dụng Flask Web Service cho EMR và chẩn đoán ảnh
+
 import base64
 import os
 import io # Dùng cho io.BytesIO
@@ -41,7 +44,7 @@ LOCAL_MODEL_CACHE = "best_weights_model.h5"
 if not os.path.exists('tmp'):
     os.makedirs('tmp')
 
-# Danh sách tên file cố định
+# Danh sách tên file cố định (Simulated data)
 NODULE_IMAGES = [
     "Đõ Kỳ Sỹ_1.3.10001.1.1.jpg", "Lê Thị Hải_1.3.10001.1.1.jpg",
     "Nguyễn Khoa Luân_1.3.10001.1.1.jpg", "Nguyễn Thanh Xuân_1.3.10002.2.2.jpg",
@@ -54,12 +57,14 @@ NONODULE_IMAGES = [
 ]
 
 def download_model_from_drive(file_id, destination_file_name):
+    """Tải model từ Google Drive nếu chưa tồn tại."""
     if os.path.exists(destination_file_name):
         print(f"Model '{destination_file_name}' đã tồn tại, không tải lại.")
         return True
     try:
         url = f"https://drive.google.com/uc?id={file_id}"
         print(f"Đang tải model từ Google Drive: {url}")
+        # Dùng gdown để tải file
         gdown.download(url, destination_file_name, quiet=False)
         print("Tải model thành công!")
         return True
@@ -89,17 +94,20 @@ def preprocess_image(file_stream):
 
 @app.route("/", methods=["GET"])
 def index():
+    """Trang đăng nhập."""
+    # Giả định có file index.html
     return render_template("index.html")
 
 @app.route("/login", methods=["POST"])
 def login():
+    """Xử lý đăng nhập."""
     username = request.form.get("userID")
     password = request.form.get("password")
     
     # Logic đăng nhập đơn giản
     if username == "user_demo" and password == "Test@123456":
         session['user'] = username
-        # Flash success để chuyển hướng, nhưng chỉ hiển thị danger ở index.html
+        # Flash success để chuyển hướng
         flash("Đăng nhập thành công!", "success") 
         return redirect(url_for("dashboard"))
     else:
@@ -108,14 +116,17 @@ def login():
 
 @app.route("/dashboard")
 def dashboard():
+    """Trang dashboard chính sau khi đăng nhập."""
     if 'user' not in session:
         flash("Vui lòng đăng nhập trước khi truy cập.", "danger")
         return redirect(url_for("index"))
     # Truyền trạng thái model để hiển thị thông báo nếu model chưa load được
+    # Giả định có file dashboard.html
     return render_template("dashboard.html", model=model) 
 
 @app.route("/emr_profile", methods=["GET", "POST"])
 def emr_profile():
+    """Route xử lý tải lên file EMR (CSV/Excel) và tóm tắt dữ liệu."""
     if 'user' not in session:
         flash("Vui lòng đăng nhập trước khi truy cập.", "danger")
         return redirect(url_for("index"))
@@ -191,18 +202,21 @@ def emr_profile():
             
             summary = info
             summary += f"<h4 class='text-xl font-semibold mt-8 mb-4 text-gray-700'><i class='fas fa-cogs mr-2 text-primary-green'></i> Phân tích Cấu trúc Cột ({cols} Cột):</h4>"
-            summary += f"<ul class='space-y-3 grid grid-cols-1 md:grid-cols-2 gap-3'>{ "".join(col_info) }</ul>"
+            # SỬA LỖI: Thay dấu ngoặc kép kép ("") bằng dấu ngoặc đơn đơn ('') trong .join()
+            summary += f"<ul class='space-y-3 grid grid-cols-1 md:grid-cols-2 gap-3'>{ ''.join(col_info) }</ul>"
             summary += "<h4 class='text-xl font-semibold mt-8 mb-4 text-gray-700'><i class='fas fa-table mr-2 text-primary-green'></i> 5 Dòng Dữ liệu Đầu tiên:</h4>"
             summary += "<div class='overflow-x-auto shadow-md rounded-lg'>" + table_html + "</div>"
             
         except Exception as e:
             summary = f"<p class='text-red-500 font-semibold text-xl'>Lỗi xử lý file EMR: <code class='text-gray-700 bg-gray-100 p-1 rounded'>{e}</code></p>"
             
+    # Giả định có file emr_profile.html
     return render_template('emr_profile.html', summary=summary, filename=filename)
 
 
 @app.route("/emr_prediction", methods=["GET", "POST"])
 def emr_prediction():
+    """Route xử lý tải lên ảnh và dự đoán bằng model H5."""
     if 'user' not in session:
         flash("Vui lòng đăng nhập trước khi truy cập.", "danger")
         return redirect(url_for("index"))
@@ -270,11 +284,13 @@ def emr_prediction():
             flash(f"Lỗi xử lý ảnh bằng model: {e}", "danger")
             return redirect(url_for("emr_prediction"))
 
+    # Giả định có file emr_prediction.html
     return render_template('emr_prediction.html', prediction=prediction, filename=filename, image_b64=image_b64)
 
 
 @app.route("/logout")
 def logout():
+    """Route đăng xuất."""
     session.pop('user', None)
     flash("Đã đăng xuất.", "success")
     return redirect(url_for("index"))
