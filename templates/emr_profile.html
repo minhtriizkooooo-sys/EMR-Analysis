@@ -1,136 +1,146 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <title>Phân tích hồ sơ EMR</title>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            background: #e8f5e9; 
-            margin: 0; 
-            padding: 0;
-            min-height: 100vh;
-        }
-        .container { 
-            max-width: 700px; 
-            margin: 50px auto; 
-            background: #fff; 
-            padding: 30px; 
-            border-radius: 10px; 
-            box-shadow: 0 0 20px rgba(0,0,0,0.1); 
-        }
-        h1 { 
-            color: #2e7d32; 
-            text-align: center;
-            margin-bottom: 20px; 
-        }
-        form {
-            text-align: center;
-            margin-bottom: 30px;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            background: #f9f9f9;
-        }
-        input[type="file"] {
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            margin-right: 10px;
-        }
-        button[type="submit"],
-        .btn-dashboard {
-            background-color: #4caf50;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.3s;
-            text-decoration: none;
-            display: inline-block;
-        }
-        button[type="submit"]:hover,
-        .btn-dashboard:hover {
-            background-color: #2e7d32;
-        }
+    <meta charset="UTF-8">
+    <title>Phân tích hồ sơ EMR</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background: #e8f5e9; 
+            margin: 0; 
+            padding: 0;
+            min-height: 100vh;
+        }
+        .container { 
+            max-width: 700px; 
+            margin: 50px auto; 
+            background: #fff; 
+            padding: 30px; 
+            border-radius: 10px; 
+            box-shadow: 0 0 20px rgba(0,0,0,0.1); 
+        }
+        h1 { 
+            color: #2e7d32; 
+            text-align: center;
+            margin-bottom: 20px; 
+        }
+        form {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        input[type="file"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+        button[type="submit"],
+        .btn-dashboard {
+            background-color: #4caf50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+        button[type="submit"]:hover,
+        .btn-dashboard:hover {
+            background-color: #2e7d32;
+        }
 
-        .message {
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 20px;
-            text-align: left;
-        }
-        .error {
-            background-color: #ffebee;
-            color: #d32f2f;
-            border: 1px solid #d32f2f;
-            font-weight: bold;
-        }
-        .report-section {
-            margin-top: 30px;
-            padding: 20px;
-            border: 2px solid #a5d6a7;
-            border-radius: 8px;
-            background: #f1f8e9;
-        }
-        .report-section h3 {
-            color: #2e7d32;
-            border-bottom: 1px solid #c8e6c9;
-            padding-bottom: 10px;
-        }
-        .report-section table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-        .report-section th, .report-section td {
-            border: 1px solid #a5d6a7;
-            padding: 8px;
-            text-align: left;
-        }
-        .report-section th {
-            background-color: #a5d6a7;
-            color: #333;
-        }
-        .contact { 
-            clear: both;
-            margin-top: 40px; 
-            font-size: 14px; 
-            border-top: 1px solid #eee;
-            padding-top: 20px;
-            color: #666;
-            text-align: center;
-        }
-    </style>
+        /* CSS cho Flash Messages */
+        .flash-message {
+            list-style: none;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            text-align: center;
+             font-weight: bold;
+        }
+        .flash-success { background-color: #f1f8e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+        .flash-danger { background-color: #ffebee; color: #d32f2f; border: 1px solid #d32f2f; }
+        .flash-warning { background-color: #fff8e1; color: #f9a825; border: 1px solid #ffecb3; }
+        
+        .report-section {
+            margin-top: 30px;
+            padding: 20px;
+            border: 2px solid #a5d6a7;
+            border-radius: 8px;
+            background: #f1f8e9;
+        }
+        .report-section h3 {
+            color: #2e7d32;
+            border-bottom: 1px solid #c8e6c9;
+            padding-bottom: 10px;
+        }
+        .report-section table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .report-section th, .report-section td {
+            border: 1px solid #a5d6a7;
+            padding: 8px;
+            text-align: left;
+        }
+        .report-section th {
+            background-color: #a5d6a7;
+            color: #333;
+        }
+        .contact { 
+            clear: both;
+            margin-top: 40px; 
+            font-size: 14px; 
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+            color: #666;
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Phân tích hồ sơ bệnh án EMR</h1>
-        
-        <form method="POST" enctype="multipart/form-data" action="{{ url_for('upload_emr') }}">
-            <input type="file" name="file" accept=".csv, .xlsx, .xls" required>
-            <button type="submit">Phân tích</button>
-            <a href="{{ url_for('dashboard') }}" class="btn-dashboard">Quay lại Dashboard</a>
-        </form>
+    <div class="container">
+        <h1>Phân tích hồ sơ bệnh án EMR</h1>
+        
+        <form method="POST" enctype="multipart/form-data" action="{{ url_for('upload_emr') }}">
+            <input type="file" name="file" accept=".csv, .xlsx, .xls" required>
+            <button type="submit">Phân tích</button>
+            <a href="{{ url_for('dashboard') }}" class="btn-dashboard">Quay lại Dashboard</a>
+        </form>
 
-        {% if error %}
-            <div class="message error">Lỗi: {{ error }}</div>
-        {% endif %}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul style="padding: 0;">
+                    {% for category, message in messages %}
+                        <li class="flash-message flash-{{ category }}">
+                            {{ message }}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
 
-        {% if summary %}
-            <div class="report-section">
-                {{ summary | safe }}
-            </div>
-        {% endif %}
-        
-        <div class="contact">
-            <p><strong>Liên hệ:</strong><br>
-                Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
-                159 Nam Kỳ Khởi Nghĩa, Quận 3, Tp. Hồ Chí Minh<br>
-                Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a> - 0908083566</p>
-        </div>
-    </div>
+        {% if summary %}
+            <div class="report-section">
+                <h3>Tóm tắt Dữ liệu Hồ sơ</h3>
+                {{ summary | safe }}
+            </div>
+        {% endif %}
+        
+        <div class="contact">
+            <p><strong>Liên hệ:</strong><br>
+                Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
+                159 Nam Kỳ Khởi Nghĩa, Quận 3, Tp. Hồ Chí Minh<br>
+                Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a> - 0908083566</p>
+        </div>
+    </div>
 </body>
 </html>
