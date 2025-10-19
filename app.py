@@ -116,10 +116,25 @@ def generate_html_table(df):
 # --- ROUTE CỦA ỨNG DỤNG ---
 
 @app.route('/')
+def index():
+    """Trang chủ/Đăng nhập (index.html). Endpoint là 'index'."""
+    # Giả định template này chứa form đăng nhập hoặc chào mừng
+    return render_template('index.html')
+
+
+@app.route('/login', methods=['POST'])
+def login():
+    """Xử lý đăng nhập (MOCK) và điều hướng đến Dashboard."""
+    # Đây là nơi logic xác thực người dùng sẽ diễn ra
+    # Giả lập đăng nhập thành công
+    flash('Đăng nhập thành công! Chuyển hướng đến Dashboard.', 'success')
+    return redirect(url_for('dashboard'))
+
+@app.route('/dashboard')
 def dashboard():
-    """Trang Dashboard chính. Endpoint là 'dashboard'."""
-    # Lỗi BuildError xảy ra vì dashboard.html cố gắng gọi url_for('index')
-    # Cần sửa trong file template thành url_for('dashboard') hoặc các endpoint khác
+    """Trang Dashboard chính (dashboard.html). Endpoint là 'dashboard'."""
+    # Lỗi BuildError sẽ được khắc phục vì template giờ đây có thể gọi 'index' và 'dashboard'
+    # Lưu ý: Cần đảm bảo file dashboard.html tồn tại trong thư mục templates
     return render_template('dashboard.html')
 
 
