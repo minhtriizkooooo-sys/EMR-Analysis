@@ -24,7 +24,8 @@ app.config['ALLOWED_EXTENSIONS'] = {'csv', 'xlsx', 'xls', 'jpg', 'jpeg', 'png'}
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 MODEL_FOLDER = 'models'
-MERGED_MODEL_PATH = os.path.join(MODEL_FOLDER, 'merged_final_model.keras') # Đổi tên file đã ghép
+# Sử dụng lại tên model đã ghép
+MERGED_MODEL_PATH = os.path.join(MODEL_FOLDER, 'best_weights_model_merged.keras') 
 
 # =============================
 # Hàm tiện ích
@@ -33,21 +34,24 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
 # =============================
-# Ghép các phần model keras (Cập nhật để dùng tên file mới)
+# Ghép các phần model keras (Sử dụng tên file gốc: best_weights_model.keras.001 - .004)
 # =============================
 def merge_model_files():
-    # Sử dụng tên file mới (model_part_1.bin, model_part_2.bin, ...)
-    parts_base_names = [f"model_part_{i}.bin" for i in range(1, 5)]
-    parts = [os.path.join(MODEL_FOLDER, name) for name in parts_base_names]
+    # SỬ DỤNG LẠI TÊN FILE ZIPPED BAN ĐẦU
+    parts = [
+        os.path.join(MODEL_FOLDER, f"best_weights_model.keras.{i:03d}")
+        for i in range(1, 5)
+    ]
     
     missing_files = [p for p in parts if not os.path.exists(p)]
     
     if missing_files:
         print("==================================================")
         print("⚠️ THIẾU FILE MODEL QUAN TRỌNG TRONG MÔI TRƯỜNG RENDER!")
+        print(f"Thư mục hiện tại: {os.getcwd()}")
         print(f"Các file model CẦN có: {parts}")
         print(f"Các file model BỊ THIẾU: {missing_files}")
-        print("⚠️ Vui lòng đảm bảo bạn đã ĐỔI TÊN và COMMIT các file thành model_part_X.bin.")
+        print("⚠️ Vui lòng đảm bảo các file này đã được commit vào thư mục 'models'.")
         print("==================================================")
         return None
     
