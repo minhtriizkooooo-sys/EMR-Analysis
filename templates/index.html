@@ -10,20 +10,44 @@
       margin: 0;
       padding: 0;
     }
+
+    /* HEADER STYLING */
+    .main-header {
+      width: 100%;
+      height: 100px;
+      background-color: #ffffff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      margin-bottom: 30px;
+    }
+
+    .logo-container img {
+      max-height: 80px;
+      height: auto;
+      width: auto;
+      object-fit: contain;
+    }
+
+    /* MAIN CONTENT */
     .container {
       max-width: 700px;
-      margin: 50px auto;
+      margin: 0 auto;
       background: #fff;
       padding: 30px;
       border-radius: 10px;
-      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
     }
+
     h1, h2 {
       color: #2e7d32;
     }
+
     label {
       font-weight: bold;
     }
+
     input {
       padding: 10px;
       margin-top: 5px;
@@ -32,6 +56,7 @@
       border: 1px solid #ccc;
       border-radius: 8px;
     }
+
     button {
       padding: 10px 20px;
       background: #2e7d32;
@@ -40,9 +65,11 @@
       border-radius: 8px;
       cursor: pointer;
     }
+
     button:hover {
       background: #1b5e20;
     }
+
     .contact {
       margin-top: 30px;
       font-size: 14px;
@@ -50,15 +77,17 @@
   </style>
 </head>
 <body>
-     <!-- NEW HEADER WITH LOGO -->
-    <header class="main-header">
-        <div class="logo-container">
-            <img src="static/Logo_Marie_Curie.png" alt="Logo Marie Curie" onerror="this.onerror=null; this.src='https://placehold.co/150x60/2e7d32/ffffff?text=LOGO'">
-        </div>
-    </header>
-    
-    
-    <div class="container">
+
+  <!-- NEW HEADER WITH LOGO -->
+  <header class="main-header">
+    <div class="logo-container">
+      <img src="static/Logo_Marie_Curie.png" alt="Logo Marie Curie"
+           onerror="this.onerror=null; this.src='https://placehold.co/150x60/2e7d32/ffffff?text=LOGO'">
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <div class="container">
     <h1>Hệ thống Phân tích Hồ sơ Bệnh án EMR bằng AI</h1>
     <p>Số hóa hồ sơ bệnh án là xu hướng tất yếu trong hiện đại hóa y tế. Hệ thống sử dụng LSTM - một mô hình trí tuệ nhân tạo tiên tiến để hỗ trợ bác sĩ phân tích bệnh án, xét nghiệm, hình ảnh y khoa và dự đoán bệnh tiềm ẩn.</p>
 
@@ -92,5 +121,6 @@
       Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a></p>
     </div>
   </div>
+
 </body>
 </html>
