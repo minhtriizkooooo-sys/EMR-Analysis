@@ -1,7 +1,21 @@
-import os
-import io
 import base64
-from flask import Flask, request, render_template, redirect, url_for, session, flash, send_from_directory
+import os
+import io # Dùng cho io.BytesIO
+# Import Image từ PIL cho việc xử lý ảnh
+from PIL import Image
+
+from flask import (
+    Flask,
+    flash,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+    send_from_directory # Giữ lại nếu cần cho việc phục vụ file tĩnh khác
+)
+
+# Thư viện cho AI/Data
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
 import numpy as np
@@ -11,6 +25,14 @@ import pandas as pd
 app = Flask(__name__)
 # Thiết lập khóa bí mật cho session
 app.secret_key = os.urandom(24)
+
+# Cấu hình các định dạng file ảnh được phép
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp'}
+
+def allowed_file(filename):
+    """Kiểm tra định dạng file có được phép hay không."""
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # Cấu hình model + ảnh cố định
 DRIVE_MODEL_FILE_ID = "1EAZibH-KDkTB09IkHFCvE-db64xtlJZw" # Đã sửa lại ID, nếu file ID cũ có lỗi
@@ -56,6 +78,7 @@ except Exception as e:
 
 def preprocess_image(file_stream):
     """Tiền xử lý ảnh từ stream dữ liệu cho model."""
+    # Sử dụng image.load_img từ Keras để tải và resize ảnh
     img = image.load_img(file_stream, target_size=(224, 224))
     x = image.img_to_array(img)
     x = x / 255.0
@@ -88,7 +111,8 @@ def dashboard():
     if 'user' not in session:
         flash("Vui lòng đăng nhập trước khi truy cập.", "danger")
         return redirect(url_for("index"))
-    return render_template("dashboard.html", model=model) # Truyền trạng thái model
+    # Truyền trạng thái model để hiển thị thông báo nếu model chưa load được
+    return render_template("dashboard.html", model=model) 
 
 @app.route("/emr_profile", methods=["GET", "POST"])
 def emr_profile():
@@ -150,7 +174,7 @@ def emr_profile():
                         </ul>
                     </li>
                 """)
-
+            
             
             info = f"""
             <div class='bg-green-50 p-6 rounded-lg shadow-inner'>
@@ -194,11 +218,17 @@ def emr_prediction():
         
         file = request.files['file']
         if file.filename == '':
-            flash("Chưa chọn file.", "danger")
+            flash("Chưa chọn file. Vui lòng chọn một file ảnh.", "danger")
             return redirect(url_for("emr_prediction"))
             
         filename = file.filename
         
+        # --- BƯỚC KIỂM TRA ĐỊNH DẠNG FILE ---
+        if not allowed_file(filename):
+            flash(f"Định dạng file không hợp lệ. Chỉ chấp nhận: {', '.join(ALLOWED_EXTENSIONS)}", "danger")
+            return redirect(url_for("emr_prediction"))
+        # ------------------------------------
+
         try:
             # Đọc file stream và lưu vào bộ nhớ để sử dụng nhiều lần
             img_bytes = file.read()
@@ -235,6 +265,8 @@ def emr_prediction():
                         prediction = {'result': 'Non-nodule', 'probability': 1.0 - score}
 
         except Exception as e:
+            # Bắt lỗi xử lý ảnh/model
+            print(f"Lỗi xử lý ảnh bằng model: {e}")
             flash(f"Lỗi xử lý ảnh bằng model: {e}", "danger")
             return redirect(url_for("emr_prediction"))
 
