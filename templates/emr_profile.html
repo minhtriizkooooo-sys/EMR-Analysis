@@ -7,7 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <style>
-        /* Định nghĩa biến màu Tailwind cho sự đồng bộ */
         :root {
             --main-green: #10B981; 
             --dark-green: #059669; 
@@ -15,20 +14,39 @@
             --error-color: #EF4444; 
             --success-color: #10B981;
         }
-        
+
         body { 
             font-family: 'Inter', sans-serif; 
             background-color: var(--light-bg); 
         }
-        
-        /* Cần override lại style table mặc định của Jinja/Pandas để Tailwind hoạt động tốt */
+
+        /* HEADER LOGO STYLING */
+        .main-header {
+            width: 100%;
+            height: 100px;
+            background-color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 10px;
+        }
+
+        .logo-container img {
+            max-height: 80px;
+            height: auto;
+            width: auto;
+            object-fit: contain;
+        }
+
+        /* TABLE STYLING */
         .report-section table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 10px;
         }
         .report-section table thead tr {
-            background-color: #4338CA; /* indigo-700 */
+            background-color: #4338CA;
             color: white;
             text-transform: uppercase;
             font-size: 0.75rem;
@@ -37,17 +55,17 @@
         .report-section table td {
             padding: 12px 15px;
             text-align: left;
-            border: 1px solid #E5E7EB; 
+            border: 1px solid #E5E7EB;
         }
         .report-section table tbody tr {
             background-color: white;
             border-bottom: 1px solid #E5E7EB;
         }
         .report-section table tbody tr:nth-child(even) {
-            background-color: #F9FAFB; 
+            background-color: #F9FAFB;
         }
         .report-section table tbody tr:hover {
-            background-color: #F3F4F6; 
+            background-color: #F3F4F6;
         }
 
         /* Modal Popup Styles */
@@ -87,7 +105,6 @@
             text-decoration: none;
             cursor: pointer;
         }
-        /* Chỉ định màu sắc cho modal lỗi/cảnh báo/thành công */
         .modal-danger { border-top: 5px solid var(--error-color); background-color: #FEF2F2; } 
         .modal-warning { border-top: 5px solid #F59E0B; background-color: #FFFBEB; } 
         .modal-success { border-top: 5px solid var(--success-color); background-color: #ECFDF5; } 
@@ -100,14 +117,15 @@
 </head>
 <body>
 
-    <!-- NEW HEADER WITH LOGO -->
+    <!-- HEADER VỚI LOGO CĂN GIỮA -->
     <header class="main-header">
         <div class="logo-container">
-            <img src="static/Logo_Marie_Curie.png" alt="Logo Marie Curie" onerror="this.onerror=null; this.src='https://placehold.co/150x60/2e7d32/ffffff?text=LOGO'">
+            <img src="static/Logo_Marie_Curie.png" alt="Logo Marie Curie" 
+                 onerror="this.onerror=null; this.src='https://placehold.co/150x60/2e7d32/ffffff?text=LOGO'">
         </div>
     </header>
 
-    
+    <!-- NAVIGATION BAR -->
     <div class="min-h-screen flex flex-col">
         <header class="bg-indigo-700 text-white shadow-lg">
             <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
@@ -122,15 +140,17 @@
             </nav>
         </header>
 
+        <!-- MAIN CONTENT -->
         <main class="flex-grow max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
             <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">Phân tích Hồ sơ Bệnh án EMR (Dữ liệu)</h2>
             <p class="text-gray-500 mb-8 text-center">Tải lên file dữ liệu EMR (CSV, Excel) để xem báo cáo tóm tắt.</p>
 
             <div class="bg-white p-6 rounded-xl shadow-lg mb-8">
                 <h3 class="text-xl font-semibold text-gray-700 mb-4">Chọn File Dữ liệu</h3>
-                <form action="{{ url_for('upload_emr') }}" method="post" enctype="multipart/form-data" class="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
+                <form action="{{ url_for('upload_emr') }}" method="post" enctype="multipart/form-data"
+                      class="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
                     <input type="file" name="file" id="data-file" accept=".csv, .xlsx, .xls" required
-                            class="flex-grow w-full sm:w-auto border border-gray-300 rounded-lg p-2 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
+                           class="flex-grow w-full sm:w-auto border border-gray-300 rounded-lg p-2 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
                     
                     <button type="submit"
                             class="w-full sm:w-auto py-2 px-6 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition duration-200">
@@ -149,79 +169,18 @@
             {% endif %}
         </main>
 
+        <!-- FOOTER -->
         <footer class="bg-gray-800 text-white py-6 mt-10">
             <div class="max-w-7xl mx-auto text-center text-gray-400">
-               <p><strong>Liên hệ:</strong><br>
-                Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
-                159 Nam Kỳ Khởi Nghĩa, Phường Xuân Hòa, Tp. Hồ Chí Minh<br>
-                Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a></p>
+                <p><strong>Liên hệ:</strong><br>
+                    Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
+                    159 Nam Kỳ Khởi Nghĩa, Phường Xuân Hòa, Tp. Hồ Chí Minh<br>
+                    Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a></p>
             </div>
         </footer>
     </div>
 
+    <!-- MODAL -->
     <div id="customModal" class="modal">
         <div class="modal-content">
-            <span class="close-btn">&times;</span>
-            <h2 id="modalTitle" class="text-xl font-bold mb-3"></h2>
-            <p id="modalBody"></p>
-        </div>
-    </div>
-    
-    <script>
-        // Modal Logic
-        const modal = document.getElementById("customModal");
-        const closeBtn = document.getElementsByClassName("close-btn")[0];
-        const modalContent = modal.querySelector('.modal-content');
-        const modalTitle = document.getElementById('modalTitle');
-        const modalBody = document.getElementById('modalBody');
-
-        function showModal(category, message) {
-            modalContent.className = 'modal-content'; 
-            modalContent.classList.add(`modal-${category}`);
-
-            let titleText = 'Thông báo';
-            let color = '#333';
-
-            if (category === 'danger') {
-                titleText = 'Lỗi nghiêm trọng 🚨';
-                color = '#EF4444'; 
-            } else if (category === 'warning') {
-                titleText = 'Cảnh báo ⚠️';
-                color = '#F59E0B'; 
-            } else if (category === 'success') {
-                titleText = 'Thành công ✅';
-                color = '#10B981'; 
-            }
-            
-            modalTitle.textContent = titleText;
-            modalTitle.style.color = color;
-            modalBody.textContent = message;
-            modal.style.display = "block";
-        }
-
-        closeBtn.onclick = function() {
-            modal.style.display = "none";
-        }
-
-        window.onclick = function(event) {
-            if (event.target == modal) {
-                modal.style.display = "none";
-            }
-        }
-
-        // Jinja2 Flash Message Handler
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                document.addEventListener('DOMContentLoaded', () => {
-                    {% for category, message in messages %}
-                        // Hiển thị lần lượt các thông báo (nếu có)
-                        setTimeout(() => showModal('{{ category }}', '{{ message }}'), 100);
-                    {% endfor %}
-                });
-            {% endif %}
-        {% endwith %}
-    </script>
-</body>
-</html>
-
-
+            <span class="close-btn">&times;</span
