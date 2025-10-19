@@ -1,109 +1,91 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <title>Phân tích hồ sơ EMR bằng AI</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #e8f5e9;
-      margin: 0;
-      padding: 0;
-    }
-    .main-header { /* New Header Style */
-        background: #fff; /* White background for header */
-        padding: 15px 0;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  <meta charset="UTF-8">
+  <title>Phân tích hồ sơ EMR bằng AI</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #e8f5e9;
+      margin: 0;
+      padding: 0;
     }
-    .logo-container { /* New Logo Container Style */
-        max-width: 1200px;
-        margin: 0 auto;
-        text-align: center; /* Center the image */
+    .container {
+      max-width: 700px;
+      margin: 50px auto;
+      background: #fff;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
     }
-    .logo-container img {
-        height: 60px; /* Adjust height as needed */
-        width: auto;
+    h1, h2 {
+      color: #2e7d32;
     }
-    .container {
-      max-width: 700px;
-      margin: 50px auto;
-      background: #fff;
-      padding: 30px;
-      border-radius: 10px;
-      box-shadow: 0 0 20px rgba(0,0,0,0.1);
-    }
-    h1, h2 {
-      color: #2e7d32;
-    }
-    label {
-      font-weight: bold;
-    }
-    input {
-      padding: 10px;
-      margin-top: 5px;
-      width: 100%;
-      margin-bottom: 15px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-    }
-    button {
-      padding: 10px 20px;
-      background: #2e7d32;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #1b5e20;
-    }
-    .contact {
-      margin-top: 30px;
-      font-size: 14px;
-    }
-  </style>
+    label {
+      font-weight: bold;
+    }
+    input {
+      padding: 10px;
+      margin-top: 5px;
+      width: 100%;
+      margin-bottom: 15px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    button {
+      padding: 10px 20px;
+      background: #2e7d32;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #1b5e20;
+    }
+    .contact {
+      margin-top: 30px;
+      font-size: 14px;
+    }
+  </style>
 </head>
 <body>
-  <!-- NEW HEADER WITH LOGO -->
-    <header class="main-header">
-        <div class="logo-container">
-            <img src="static/Logo_Marie_Curie.png" alt="Logo Marie Curie" onerror="this.onerror=null; this.src='https://placehold.co/150x60/2e7d32/ffffff?text=LOGO'">
-        </div>
-    </header>
+  
+    
+    
+    <div class="container">
+    <h1>Hệ thống Phân tích Hồ sơ Bệnh án EMR bằng AI</h1>
+    <p>Số hóa hồ sơ bệnh án là xu hướng tất yếu trong hiện đại hóa y tế. Hệ thống sử dụng LSTM - một mô hình trí tuệ nhân tạo tiên tiến để hỗ trợ bác sĩ phân tích bệnh án, xét nghiệm, hình ảnh y khoa và dự đoán bệnh tiềm ẩn.</p>
 
-  <div class="container">
-    <h1>Hệ thống Phân tích Hồ sơ Bệnh án EMR bằng AI</h1>
-    <p>Số hóa hồ sơ bệnh án là xu hướng tất yếu trong hiện đại hóa y tế. Hệ thống sử dụng LSTM - một mô hình trí tuệ nhân tạo tiên tiến để hỗ trợ bác sĩ phân tích bệnh án, xét nghiệm, hình ảnh y khoa và dự đoán bệnh tiềm ẩn.</p>
+    <h2>Đăng nhập hệ thống</h2>
+    <form method="POST" action="{{ url_for('login') }}">
+      <label for="userID">ID người dùng:</label>
+      <input type="text" id="userID" name="userID" required>
 
-    <h2>Đăng nhập hệ thống </h2>
-    <form method="POST" action="{{ url_for('login') }}">
-      <label for="userID">ID người dùng:</label>
-      <input type="text" id="userID" name="userID" required>
+      <label for="password">Mật khẩu:</label>
+      <input type="password" id="password" name="password" required>
 
-      <label for="password">Mật khẩu:</label>
-      <input type="password" id="password" name="password" required>
+      <button type="submit">Đăng nhập</button>
+    </form>
 
-      <button type="submit">Đăng nhập</button>
-    </form>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul>
+          {% for category, message in messages %}
+            <li style="color:{% if category=='danger' %}red{% elif category=='success' %}green{% else %}black{% endif %};">
+              {{ message }}
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <ul>
-          {% for category, message in messages %}
-            <li style="color:{% if category=='danger' %}red{% elif category=='success' %}green{% else %}black{% endif %};">
-              {{ message }}
-            </li>
-          {% endfor %}
-        </ul>
-      {% endif %}
-    {% endwith %}
-
-    <div class="contact">
-      <p><strong>Liên hệ:</strong><br>
-      Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
-      159 Nam Kỳ Khởi Nghĩa, Phường Xuân Hòa, Tp. Hồ Chí Minh<br>
-      Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a></p>
-    </div>
-  </div>
+    <div class="contact">
+      <p><strong>Liên hệ:</strong><br>
+      Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
+      159 Nam Kỳ Khởi Nghĩa, Phường Xuân Hòa, Tp. Hồ Chí Minh<br>
+      Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a></p>
+    </div>
+  </div>
 </body>
 </html>
