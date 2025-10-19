@@ -1,265 +1,264 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <title>Dự đoán từ hồ sơ EMR</title>
-    <style>
-        /* Color Palette */
-        :root {
-            --main-green: #4CAF50; /* Primary button and highlight */
-            --dark-green: #2E7D32; /* Title and hover */
-            --light-bg: #e8f5e9;   /* Light background */
-            --success-bg: #e6ffe6; /* Report section background */
-            --error-bg: #ffebee;   /* Error background */
-            --error-color: #d32f2f;
-        }
-        
-        body { 
-            font-family: Arial, sans-serif; 
-            background: var(--light-bg); 
-            margin: 0; 
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            min-height: 100vh;
-        }
-        .container { 
-            max-width: 750px; 
-            margin: 50px 20px; 
-            background: #fff; 
-            padding: 30px; 
-            border-radius: 10px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
-            width: 100%;
-        }
-        h1 { 
-            color: var(--dark-green); 
-            text-align: center;
-            margin-bottom: 25px; 
-            border-bottom: 2px solid var(--light-bg);
-            padding-bottom: 10px;
-        }
-        form {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            background: #f9f9f9;
-        }
-        input[type="file"] {
-            flex-grow: 1;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            margin-right: 15px;
-        }
-        .button-group {
-            display: flex;
-            gap: 10px;
-        }
-        .btn, .btn-dashboard {
-            background-color: var(--main-green);
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: 0.3s;
-            text-decoration: none;
-            font-weight: bold;
-        }
-        .btn:hover, .btn-dashboard:hover {background-color: var(--dark-green);}
-        
-        .result-section {
-            margin-top: 30px; 
-            padding: 20px; 
-            background: var(--success-bg); 
-            border-radius: 8px; 
-            text-align: center; 
-            border: 2px solid var(--main-green);
-        }
-        .result-section h2 {
-            color: var(--dark-green); 
-            border-bottom: 1px solid var(--main-green); 
-            padding-bottom: 10px;
-        }
-        .result-content {
-            display: flex;
-            gap: 20px;
-            margin-top: 20px;
-            justify-content: center;
-            align-items: center;
-        }
-        .image-display, .prediction-output {
-            flex: 1;
-        }
-        img {
-            max-width: 100%; 
-            max-height: 250px; 
-            object-fit: contain; 
-            margin-top: 15px; 
-            border-radius: 8px; 
-            border: 4px solid #ddd;
-        }
-        .contact { 
-            clear: both;
-            margin-top: 40px; 
-            font-size: 14px; 
-            border-top: 1px solid #eee;
-            padding-top: 20px;
-            color: #666;
-            text-align: center;
-        }
+import os
+import json
+import numpy as np
+import pandas as pd
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from werkzeug.utils import secure_filename
+from io import BytesIO
 
-        /* Modal Popup Styles */
-        .modal {
-            display: none; 
-            position: fixed; 
-            z-index: 1000; 
-            left: 0;
-            top: 0;
-            width: 100%; 
-            height: 100%; 
-            overflow: auto; 
-            background-color: rgba(0,0,0,0.5); 
-        }
-        .modal-content {
-            background-color: #fefefe;
-            margin: 15% auto; 
-            padding: 20px;
-            border: 1px solid #888;
-            width: 80%; 
-            max-width: 400px;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            text-align: center;
-            animation: fadeIn 0.3s;
-        }
-        .close-btn {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            line-height: 20px;
-        }
-        .close-btn:hover,
-        .close-btn:focus {
-            color: #000;
-            text-decoration: none;
-            cursor: pointer;
-        }
-        .modal-success { border-top: 5px solid var(--main-green); background-color: var(--success-bg); }
-        .modal-danger { border-top: 5px solid var(--error-color); background-color: var(--error-bg); }
-        .modal-warning { border-top: 5px solid #ffc107; background-color: #fff8e1; }
-        #modalTitle { margin-top: 0; color: var(--dark-green); }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    </style>
-</head>
-<body>
-<div class="container">
-    <h1>Dự đoán EMR chuyên sâu</h1>
-    <form method="POST" enctype="multipart/form-data" action="{{ url_for('upload_image') }}">
-        <input type="file" name="image" accept="image/*" required>
-        <div class="button-group">
-            <button type="submit" class="btn">Phân tích</button>
-            <a href="{{ url_for('dashboard') }}" class="btn-dashboard"> Quay lại Dashboard</a>
-        </div>
-    </form>
+# --- CẤU HÌNH ỨNG DỤNG VÀ THƯ MỤC ---
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS_DATA = {'csv', 'xlsx', 'xls'}
+ALLOWED_EXTENSIONS_IMAGE = {'png', 'jpg', 'jpeg', 'gif'}
+
+# --- CẤU HÌNH GOOGLE DRIVE FILE ID BẰNG BIẾN MÔI TRƯỜNG ---
+# Sử dụng os.getenv() để lấy ID file model từ Google Drive.
+# Thay 'YOUR_DRIVE_FILE_ID_HERE' bằng ID file thực tế của bạn hoặc biến môi trường.
+DRIVE_MODEL_FILE_ID = os.getenv('DRIVE_MODEL_FILE_ID', '1EAZibH-KDkTB09IkHFCvE-db64xtfJZw')
+LOCAL_MODEL_CACHE = 'best_weights_model.h5' # Tên file cache model trên server
+
+app = Flask(__name__)
+# Đảm bảo SECRET_KEY được đặt cho Flash Messages
+app.secret_key = os.getenv('FLASK_SECRET_KEY', 'default_secret_key_for_flash') 
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# --- 1. XỬ LÝ LỖI IMPORT VÀ LOAD MODEL TỪ DRIVE ID ---
+
+# Global variable để chứa model và trạng thái
+EMR_MODEL = None
+MODEL_LOAD_SUCCESS = False
+DEPENDENCY_ERROR = None
+
+def download_blob(file_id, destination_file_name):
+    """
+    Giả lập hoặc thực hiện hàm tải file từ Google Drive bằng File ID.
+    (Yêu cầu phải có xác thực OAuth2.0 hoặc sử dụng các thư viện như pydrive/google-api-python-client)
+    """
+    if file_id == '1EAZibH-KDkTB09IkHFCvE-db64xtfJZw':
+        raise Exception("DRIVE ID chưa được thiết lập. Vui lòng đặt biến môi trường DRIVE_MODEL_FILE_ID.")
+
+    print(f"INFO: Attempting to download model using Drive File ID: {file_id}...")
     
-    {% if result %}
-        <div class="result-section">
-            <h2>Kết quả dự đoán:</h2>
-            <div class="result-content">
-                {% if image_name %}
-                    <div class="image-display">
-                        <h3>Ảnh đã tải lên</h3>
-                        <img src="{{ url_for('uploaded_file', filename=image_name) }}" alt="Ảnh đã tải lên">
-                    </div>
-                {% endif %}
-                <div class="prediction-output">
-                    <h3>Thông tin dự đoán</h3>
-                    <div style="font-size: 16px; text-align: left;">{{ result | safe }}</div> 
-                </div>
-            </div>
-        </div>
-    {% endif %}
+    # --- PHẦN CODE THỰC HIỆN TẢI XUỐNG THỰC TẾ (RẤT PHỨC TẠP VỚI FLASK VÀ OAUTH) ---
+    # *Đây là một ví dụ logic, không phải code chạy được ngay nếu không có xác thực Google.*
+    # if you are using google-api-python-client:
+    # try:
+    #     service = build('drive', 'v3', credentials=creds) # Cần 'creds' từ OAuth flow
+    #     request = service.files().get_media(fileId=file_id)
+    #     fh = io.FileIO(destination_file_name, 'wb')
+    #     downloader = MediaIoBaseDownload(fh, request)
+    #     done = False
+    #     while done is False:
+    #         status, done = downloader.next_chunk()
+    #     print(f"INFO: Actual Drive download successful to local cache: {destination_file_name}")
+    #     return True
+    # except Exception as e:
+    #     raise Exception(f"Lỗi tải file từ Google Drive API: {e}")
+    # -----------------------------------------------------------------------------
 
-    <div class="contact">
-        <p><strong>Liên hệ:</strong><br>
-            Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
-            159 Nam Kỳ Khởi Nghĩa, Quận 3, Tp. Hồ Chí Minh<br>
-            Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a> - 0908083566</p>
-    </div>
-</div>
+    # --- MOCKING: Giả lập thành công cho mục đích phát triển local ---
+    # Giả lập tạo file model rỗng thành công tại local
+    with open(destination_file_name, 'w') as f:
+        f.write("MOCK_MODEL_DATA") 
+    print(f"INFO: Successfully mocked download to local cache: {destination_file_name}")
+    return True
+    # --- END MOCKING ---
 
-    <!-- Modal Popup Structure -->
-    <div id="customModal" class="modal">
-        <div class="modal-content">
-            <span class="close-btn">&times;</span>
-            <h2 id="modalTitle"></h2>
-            <p id="modalBody"></p>
-        </div>
-    </div>
 
-    <script>
-        // Modal Logic (Code tương tự như emr_profile.html)
-        const modal = document.getElementById("customModal");
-        const closeBtn = document.getElementsByClassName("close-btn")[0];
-        const modalContent = modal.querySelector('.modal-content');
-        const modalTitle = document.getElementById('modalTitle');
-        const modalBody = document.getElementById('modalBody');
+def check_dependencies_and_load_model():
+    """Kiểm tra dependency và tải mô hình AI từ Google Drive ID."""
+    global EMR_MODEL, MODEL_LOAD_SUCCESS, DEPENDENCY_ERROR
+    
+    # 1. Kiểm tra Dependency AI (TensorFlow/Keras)
+    try:
+        from tensorflow.keras.models import load_model 
+        print("Dependency check successful: TensorFlow/Keras found.")
+    except ImportError as e:
+        DEPENDENCY_ERROR = f"Lỗi thư viện AI: {e}. Vui lòng cài đặt thư viện TensorFlow/Keras."
+        print(f"ERROR: {DEPENDENCY_ERROR}")
+        MODEL_LOAD_SUCCESS = False
+        return
 
-        function showModal(category, message) {
-            modalContent.className = 'modal-content'; 
-            modalContent.classList.add(`modal-${category}`);
+    # 2. Kiểm tra Dependency Drive API (Chỉ để cảnh báo)
+    # Trong môi trường thực tế, bạn sẽ cần google-api-python-client hoặc pydrive
+    try:
+        import googleapiclient.discovery # Ví dụ: Cần cho Google API Client
+        print("Dependency check successful: Google API Client library assumed available.")
+    except ImportError as e:
+        print(f"WARNING: Thư viện Google API Client có thể thiếu nếu bạn dùng Google Drive API thật.")
 
-            let titleText = 'Thông báo';
-            let titleColor = 'var(--dark-green)';
-            if (category === 'success') {
-                titleText = 'Thành công';
-                titleColor = 'var(--dark-green)';
-            } else if (category === 'danger') {
-                titleText = 'Lỗi nghiêm trọng';
-                titleColor = 'var(--error-color)';
-            } else if (category === 'warning') {
-                titleText = 'Cảnh báo';
-                titleColor = '#ffc107';
+    # 3. Thực hiện tải file model từ Drive ID
+    try:
+        # Bước 1: Tải file model từ Drive xuống máy chủ
+        download_blob(DRIVE_MODEL_FILE_ID, LOCAL_MODEL_CACHE)
+        
+        # Bước 2: Tải model Keras/TF từ file đã cache
+        # EMR_MODEL = load_model(LOCAL_MODEL_CACHE)
+        
+        # --- MOCKING: Giả lập tải model thành công ---
+        EMR_MODEL = {"status": "Loaded from Drive ID", "id": DRIVE_MODEL_FILE_ID}
+        # --- END MOCKING ---
+
+        MODEL_LOAD_SUCCESS = True
+        print(f"AI Model loaded successfully using Drive ID: {DRIVE_MODEL_FILE_ID}")
+
+    except Exception as e:
+        # Lỗi xảy ra khi tải file từ Drive, hoặc file bị hỏng khi load_model
+        DEPENDENCY_ERROR = f"LỖI TẢI/LOAD MODEL TỪ DRIVE ID: {e}. Vui lòng kiểm tra ID file và xác thực Google. Lỗi: {e}"
+        print(f"FATAL ERROR: {DEPENDENCY_ERROR}")
+        MODEL_LOAD_SUCCESS = False
+
+# Thực hiện kiểm tra và tải model khi ứng dụng khởi động
+check_dependencies_and_load_model()
+
+# --- HÀM HỖ TRỢ CHUNG ---
+
+def allowed_file(filename, allowed_extensions):
+    """Kiểm tra đuôi file hợp lệ."""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
+
+def generate_html_table(df):
+    """Tạo bảng HTML tóm tắt từ DataFrame."""
+    # Logic giữ nguyên
+    head_html = df.head(5).to_html(classes='data-table', border=0, index=False)
+    desc_df = df.describe(include='all').T.reset_index()
+    desc_df.columns = ['Thuộc tính', 'Đếm', 'Giá trị duy nhất', 'Giá trị phổ biến', 'Tần suất', 'Trung bình', 'Std', 'Min', '25%', '50%', '75%', 'Max']
+    desc_df = desc_df.fillna('-').iloc[:, :6] 
+    desc_html = desc_df.to_html(classes='summary-table', border=0, index=False)
+    
+    html = f"""
+        <h3>5 dòng dữ liệu đầu tiên:</h3>
+        {head_html}
+        <h3>Tóm tắt thống kê:</h3>
+        {desc_html}
+    """
+    return html
+
+# --- ROUTE CỦA ỨNG DỤNG ---
+
+@app.route('/')
+def dashboard():
+    """Trang Dashboard chính."""
+    return render_template('dashboard.html')
+
+
+@app.route('/emr_profile')
+def emr_profile():
+    """Trang phân tích hồ sơ EMR (CSV/Excel)."""
+    return render_template('emr_profile.html', summary=None, filename=None)
+
+
+@app.route('/upload_emr', methods=['POST'])
+def upload_emr():
+    """Xử lý tải lên file EMR (CSV/Excel) và phân tích."""
+    # Logic giữ nguyên
+    if 'file' not in request.files:
+        flash('Không có phần file trong request.', 'warning')
+        return redirect(url_for('emr_profile'))
+    
+    file = request.files['file']
+    if file.filename == '':
+        flash('Chưa chọn file.', 'warning')
+        return redirect(url_for('emr_profile'))
+
+    if file and allowed_file(file.filename, ALLOWED_EXTENSIONS_DATA):
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        
+        try:
+            file.save(filepath)
+            
+            if filename.endswith('.csv'):
+                df = pd.read_csv(filepath)
+            else:
+                df = pd.read_excel(filepath)
+            
+            summary_html = generate_html_table(df)
+            
+            os.remove(filepath)
+
+            flash(f'Phân tích file "{filename}" thành công!', 'success')
+            return render_template('emr_profile.html', summary=summary_html, filename=filename)
+
+        except Exception as e:
+            flash(f'Lỗi khi xử lý file EMR: {e}', 'danger')
+            return redirect(url_for('emr_profile'))
+    else:
+        flash('Định dạng file không được hỗ trợ. Chỉ chấp nhận CSV, XLSX, XLS.', 'danger')
+        return redirect(url_for('emr_profile'))
+
+
+@app.route('/emr_prediction')
+def emr_prediction():
+    """Trang dự đoán EMR chuyên sâu (Phân loại ảnh)."""
+    
+    # Xử lý lỗi model khi vào trang
+    if not MODEL_LOAD_SUCCESS:
+        # Nếu model không tải được, hiển thị lỗi trong popup
+        flash(DEPENDENCY_ERROR, 'danger') 
+    
+    return render_template('emr_prediction.html', result=None, image_name=None)
+
+
+@app.route('/upload_image', methods=['POST'])
+def upload_image():
+    """Xử lý tải lên ảnh và dự đoán."""
+    if not MODEL_LOAD_SUCCESS:
+        # Trả về lỗi nếu model chưa tải thành công
+        flash(DEPENDENCY_ERROR, 'danger')
+        return redirect(url_for('emr_prediction'))
+
+    if 'image' not in request.files:
+        flash('Không có file ảnh nào được tải lên.', 'warning')
+        return redirect(url_for('emr_prediction'))
+
+    file = request.files['image']
+    if file.filename == '':
+        flash('Chưa chọn file ảnh.', 'warning')
+        return redirect(url_for('emr_prediction'))
+
+    if file and allowed_file(file.filename, ALLOWED_EXTENSIONS_IMAGE):
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        
+        try:
+            file.save(filepath)
+            
+            # --- MOCKING: Giả lập dự đoán ---
+            mock_predictions = {
+                'Phân loại': np.random.choice(['Ung thư', 'Lành tính', 'Nghi ngờ'], 1)[0],
+                'Độ tin cậy': f"{np.random.uniform(0.85, 0.99):.2f}%",
+                'Khuyến nghị': "Cần hội chẩn chuyên sâu với bác sĩ chẩn đoán hình ảnh.",
+                'Model sử dụng': EMR_MODEL['id'] # Sử dụng ID file
             }
             
-            modalTitle.textContent = titleText;
-            modalTitle.style.color = titleColor;
-            modalBody.innerHTML = message; // Dùng innerHTML để hỗ trợ hiển thị thẻ HTML nếu có (như lỗi AI chưa tải)
-            modal.style.display = "block";
-        }
+            result_html = "<ul>"
+            for key, value in mock_predictions.items():
+                result_html += f"<li><strong>{key}:</strong> {value}</li>"
+            result_html += "</ul>"
+            
+            flash(f'Dự đoán ảnh "{filename}" thành công!', 'success')
+            return render_template('emr_prediction.html', result=result_html, image_name=filename)
 
-        closeBtn.onclick = function() {
-            modal.style.display = "none";
-        }
+        except Exception as e:
+            flash(f'Lỗi khi xử lý hoặc dự đoán ảnh: {e}', 'danger')
+            return redirect(url_for('emr_prediction'))
+    else:
+        flash('Định dạng ảnh không được hỗ trợ.', 'danger')
+        return redirect(url_for('emr_prediction'))
 
-        window.onclick = function(event) {
-            if (event.target == modal) {
-                modal.style.display = "none";
-            }
-        }
 
-        // Jinja2 Flash Message Handler
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                document.addEventListener('DOMContentLoaded', () => {
-                    {% for category, message in messages %}
-                        // Gọi showModal cho mỗi thông báo flash
-                        showModal('{{ category }}', '{{ message }}');
-                    {% endfor %}
-                });
-            {% endif %}
-        {% endwith %}
-    </script>
-</body>
-</html>
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    """Serve file ảnh đã tải lên."""
+    from flask import send_from_directory
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+
+if __name__ == '__main__':
+    # Đảm bảo thư mục uploads tồn tại
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    
+    # Chạy ứng dụng
+    app.run(debug=True)
