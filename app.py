@@ -14,7 +14,8 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
 app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['ALLOWED_EXTENSIONS'] = {'csv', 'xlsx', 'xls', 'jpg', 'jpeg', 'png'}
+# Thêm hỗ trợ định dạng ảnh cho việc upload
+app.config['ALLOWED_EXTENSIONS'] = {'csv', 'xlsx', 'xls', 'jpg', 'jpeg', 'png'} 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 MODEL_FOLDER = 'models'
@@ -34,19 +35,26 @@ def merge_model_files():
         os.path.join(MODEL_FOLDER, f"best_weights_model.keras.{i:03d}")
         for i in range(1, 5)
     ]
+    # Kiểm tra model parts: Nếu thiếu file, in cảnh báo và trả về None
     if not all(os.path.exists(p) for p in parts):
-        print("⚠️ Không tìm thấy đầy đủ model parts (.001–.004)")
+        print("⚠️ Không tìm thấy đầy đủ model parts (.001–.004) trong thư mục 'models'.")
         return None
+    
     if os.path.exists(MERGED_MODEL_PATH):
+        print("✅ Model đã được ghép. Bỏ qua bước ghép.")
         return MERGED_MODEL_PATH
 
     print("🔧 Ghép model...")
-    with open(MERGED_MODEL_PATH, "wb") as merged:
-        for part in parts:
-            with open(part, "rb") as f:
-                shutil.copyfileobj(f, merged)
-    print("✅ Đã ghép xong model.")
-    return MERGED_MODEL_PATH
+    try:
+        with open(MERGED_MODEL_PATH, "wb") as merged:
+            for part in parts:
+                with open(part, "rb") as f:
+                    shutil.copyfileobj(f, merged)
+        print("✅ Đã ghép xong model.")
+        return MERGED_MODEL_PATH
+    except Exception as e:
+        print(f"❌ Lỗi khi ghép model: {e}")
+        return None
 
 # =============================
 # Load model khi khởi động
@@ -55,7 +63,8 @@ MODEL_PATH = merge_model_files()
 model = None
 if MODEL_PATH:
     try:
-        model = load_model(MODEL_PATH)
+        # Quan trọng: Đảm bảo Keras và TensorFlow tương thích với phiên bản Python 3.11
+        model = load_model(MODEL_PATH) 
         print("✅ Model y tế đã load thành công.")
     except Exception as e:
         print("❌ Lỗi khi load model:", e)
@@ -120,17 +129,23 @@ def upload_emr():
     if file.filename == '':
         flash('Chưa chọn file hợp lệ.', 'warning')
         return redirect(url_for('emr_profile'))
+    
+    # Kiểm tra phần mở rộng file
+    if not allowed_file(file.filename):
+        flash('Định dạng file không được hỗ trợ!', 'danger')
+        return redirect(url_for('emr_profile'))
 
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(file.filename))
     file.save(filepath)
 
     try:
+        # Đảm bảo bạn đã cài đặt openpyxl nếu dùng excel
         df = pd.read_csv(filepath) if file.filename.endswith('.csv') else pd.read_excel(filepath)
         summary = df.describe(include='all').to_html(classes='table table-bordered table-sm')
         flash('✅ Phân tích hồ sơ EMR thành công!', 'success')
     except Exception as e:
         summary = f"Lỗi khi đọc file: {e}"
-        flash('❌ Lỗi khi phân tích hồ sơ.', 'danger')
+        flash(f'❌ Lỗi khi phân tích hồ sơ: {e}', 'danger')
 
     return render_template('emr_profile.html', summary=summary, filename=file.filename)
 
@@ -145,7 +160,7 @@ def emr_prediction():
     return render_template('emr_prediction.html')
 
 # =============================
-# Upload ảnh y tế & Dự đoán
+# Upload ảnh y tế & Dự đoán (ĐÃ CHỈNH SỬA)
 # =============================
 @app.route('/upload_image', methods=['POST'])
 def upload_image():
@@ -160,19 +175,58 @@ def upload_image():
     if file.filename == '':
         flash('Chưa chọn ảnh hợp lệ.', 'warning')
         return redirect(url_for('emr_prediction'))
+    
+    # Kiểm tra phần mở rộng file (chỉ cho phép ảnh)
+    if file.filename.rsplit('.', 1)[1].lower() not in ['jpg', 'jpeg', 'png']:
+        flash('Vui lòng chỉ tải lên file ảnh (jpg, jpeg, png).', 'danger')
+        return redirect(url_for('emr_prediction'))
 
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(file.filename))
     file.save(filepath)
-
+    
+    prediction_result = None
+    
+    if model is None:
+        flash('❌ Hệ thống AI chưa được tải. Không thể dự đoán.', 'danger')
+        # Trả về trang để hiển thị lỗi mà không cần ảnh
+        return render_template('emr_prediction.html', result=None) 
+    
     try:
+        # Chuẩn bị ảnh cho model (224x224, RGB, chuẩn hóa)
         img = Image.open(filepath).convert('RGB').resize((224, 224))
         arr = np.expand_dims(np.array(img) / 255.0, axis=0)
-        result = float(model.predict(arr)[0][0]) if model else None
+        
+        # Thực hiện dự đoán
+        probability = float(model.predict(arr)[0][0]) 
+        percent = probability * 100
+        
+        # Định dạng kết quả dự đoán thành chuỗi HTML
+        if probability >= 0.5:
+            label = "UNG THƯ/BỆNH LÝ NGHIÊM TRỌNG"
+            style = "color: red; font-weight: bold; font-size: 20px;"
+        else:
+            label = "BÌNH THƯỜNG/KHÔNG PHÁT HIỆN BỆNH LÝ"
+            style = "color: green; font-weight: bold; font-size: 20px;"
+            
+        prediction_result = f"""
+            <p><strong>Dự đoán AI:</strong> <span style="{style}">{label}</span></p>
+            <p><strong>Xác suất dự đoán:</strong> <span style="font-size: 18px;">{percent:.2f}%</span></p>
+            <p class="text-muted">*(Dự đoán dựa trên mô hình CNN/LSTM y tế)</p>
+        """
+        flash('✅ Dự đoán ảnh y tế thành công!', 'success')
+        
     except Exception as e:
         print("❌ Lỗi khi dự đoán:", e)
-        result = None
+        # Sử dụng flash thay vì truyền biến 'error'
+        flash(f'❌ Lỗi xử lý ảnh và dự đoán: {e}', 'danger')
+        # Đặt prediction_result về None nếu có lỗi xảy ra
+        prediction_result = None 
 
-    return render_template('emr_prediction.html', image_name=file.filename, result=result)
+    return render_template(
+        'emr_prediction.html', 
+        image_name=file.filename, 
+        result=prediction_result # Truyền chuỗi HTML đã format
+    )
 
 # =============================
 # Đăng xuất
@@ -194,4 +248,5 @@ def uploaded_file(filename):
 # Chạy app
 # =============================
 if __name__ == '__main__':
+    # Gunicorn sẽ chạy app này trên Render, chỉ chạy debug local khi chạy file trực tiếp
     app.run(host='0.0.0.0', port=5000, debug=True)
