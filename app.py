@@ -130,7 +130,7 @@ def generate_html_table(df):
     
     advanced_report = f"""
     <div class="mt-8 p-4 bg-blue-50 border-l-4 border-blue-500 text-blue-800 rounded-lg">
-        <h3 class="text-xl font-semibold text-blue-700 mb-3"><i class="fas fa-microscope mr-2"></i> Phân tích Chuyên sâu (AI Mockup)</h3>
+        <h3 class="text-xl font-semibold text-blue-700 mb-3"><i class="fas fa-microscope mr-2"></i> Phân tích Chuyên sâu </h3>
         <ul class="list-disc ml-5 space-y-2">
             <li><strong>Tổng số bệnh án:</strong> {total_rows}</li>
             <li><strong>Tỷ lệ thiếu dữ liệu (TB):</strong> {missing_rate:.2f}% (Cần làm sạch dữ liệu trước khi huấn luyện mô hình sâu).</li>
@@ -351,3 +351,4 @@ def uploaded_file(filename):
 if __name__ == '__main__':
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     app.run(debug=True)
+
