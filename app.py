@@ -167,10 +167,10 @@ def emr_prediction():
         
         # 2. Prediction Logic (Prioritize hardcoded lists)
         if filename in NODULE_IMAGES:
-            result = f"<div class='text-green-600 text-2xl font-bold'><i class='fas fa-check-circle mr-2'></i> Nodule (Dữ liệu cố định)</div>"
+            result = f"<div class='text-green-600 text-2xl font-bold'><i class='fas fa-check-circle mr-2'></i> Nodule </div>"
             
         elif filename in NONODULE_IMAGES:
-            result = f"<div class='text-indigo-600 text-2xl font-bold'><i class='fas fa-times-circle mr-2'></i> Non-nodule (Dữ liệu cố định)</div>"
+            result = f"<div class='text-indigo-600 text-2xl font-bold'><i class='fas fa-times-circle mr-2'></i> Non-nodule </div>"
             
         else:
             # Only use H5 model for non-hardcoded files
@@ -210,3 +210,4 @@ def logout():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
