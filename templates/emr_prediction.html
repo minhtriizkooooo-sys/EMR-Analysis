@@ -1,264 +1,116 @@
-import os
-import json
-import numpy as np
-import pandas as pd
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
-from werkzeug.utils import secure_filename
-from io import BytesIO
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dự đoán Hình ảnh | EMR Insight AI</title>
+    <!-- Tải Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        /* Style cho phần hiển thị kết quả dự đoán (dùng ul/li) */
+        .result-box ul { list-style: none; padding: 0; }
+        .result-box li { padding: 8px 0; border-bottom: 1px dashed #e5e7eb; }
+        .result-box li:last-child { border-bottom: none; }
+        .result-box strong { font-weight: 600; color: #4b5563; }
+    </style>
+</head>
+<body>
+    <div class="min-h-screen flex flex-col">
+        <!-- Header / Navigation Bar (Dùng lại cấu trúc đã thống nhất) -->
+        <header class="bg-indigo-700 text-white shadow-lg">
+            <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+                <!-- Điều hướng về Trang chủ / Đăng nhập (Endpoint 'index') -->
+                <a href="{{ url_for('index') }}" class="text-2xl font-bold tracking-tight">EMR Insight AI</a>
+                <div>
+                    <!-- Điều hướng đến Dashboard -->
+                    <a href="{{ url_for('dashboard') }}" class="ml-4 hover:text-indigo-200 transition duration-150">Dashboard</a>
+                    <!-- Điều hướng đến Phân tích Hồ sơ -->
+                    <a href="{{ url_for('emr_profile') }}" class="ml-4 hover:text-indigo-200 transition duration-150">Phân tích Hồ sơ</a>
+                    <a href="{{ url_for('index') }}" class="ml-6 bg-red-500 hover:bg-red-600 py-2 px-4 rounded-lg font-medium transition duration-150">
+                        <i class="fas fa-sign-out-alt mr-1"></i> Đăng xuất
+                    </a>
+                </div>
+            </nav>
+        </header>
 
-# --- CẤU HÌNH ỨNG DỤNG VÀ THƯ MỤC ---
-UPLOAD_FOLDER = 'uploads'
-ALLOWED_EXTENSIONS_DATA = {'csv', 'xlsx', 'xls'}
-ALLOWED_EXTENSIONS_IMAGE = {'png', 'jpg', 'jpeg', 'gif'}
+        <!-- Main Content -->
+        <main class="flex-grow max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Dự đoán Chẩn đoán (Phân loại Hình ảnh)</h2>
+            <p class="text-gray-500 mb-8">Sử dụng mô hình học sâu để phân tích hình ảnh y tế và đưa ra dự đoán.</p>
 
-# --- CẤU HÌNH GOOGLE DRIVE FILE ID BẰNG BIẾN MÔI TRƯỜNG ---
-# Sử dụng os.getenv() để lấy ID file model từ Google Drive.
-# Thay 'YOUR_DRIVE_FILE_ID_HERE' bằng ID file thực tế của bạn hoặc biến môi trường.
-DRIVE_MODEL_FILE_ID = os.getenv('DRIVE_MODEL_FILE_ID', '1EAZibH-KDkTB09IkHFCvE-db64xtfJZw')
-LOCAL_MODEL_CACHE = 'best_weights_model.h5' # Tên file cache model trên server
+            <!-- Flash Messages (Để hiển thị lỗi Model Loading hoặc thông báo thành công) -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <ul class="mb-6 space-y-2">
+                        {% for category, message in messages %}
+                            <li class="p-4 rounded-xl text-sm font-medium 
+                                {% if category == 'success' %}bg-green-100 text-green-700 border-green-500
+                                {% elif category == 'danger' %}bg-red-100 text-red-700 border-red-500
+                                {% elif category == 'warning' %}bg-yellow-100 text-yellow-700 border-yellow-500
+                                {% else %}bg-blue-100 text-blue-700 border-blue-500{% endif %} 
+                                border-l-4">
+                                {{ message }}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            {% endwith %}
 
-app = Flask(__name__)
-# Đảm bảo SECRET_KEY được đặt cho Flash Messages
-app.secret_key = os.getenv('FLASK_SECRET_KEY', 'default_secret_key_for_flash') 
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+            <!-- Upload Form -->
+            <div class="bg-white p-6 rounded-xl shadow-lg mb-8">
+                <h3 class="text-xl font-semibold text-gray-700 mb-4">Tải lên Hình ảnh để Dự đoán</h3>
+                <form action="{{ url_for('upload_image') }}" method="post" enctype="multipart/form-data" class="space-y-4">
+                    <label for="image-file" class="block text-sm font-medium text-gray-700">Chọn file ảnh (PNG, JPG, JPEG, GIF)</label>
+                    
+                    <!-- Input File -->
+                    <input type="file" id="image-file" name="image" accept=".png, .jpg, .jpeg, .gif" required
+                           class="w-full border border-gray-300 rounded-lg p-2 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                    
+                    <!-- Submit Button -->
+                    <button type="submit"
+                            class="w-full py-2 px-4 bg-pink-600 text-white font-semibold rounded-lg hover:bg-pink-700 transition duration-200">
+                        <i class="fas fa-upload mr-2"></i> Dự đoán
+                    </button>
+                </form>
+            </div>
 
-# --- 1. XỬ LÝ LỖI IMPORT VÀ LOAD MODEL TỪ DRIVE ID ---
+            <!-- Prediction Results -->
+            {% if result is not none %}
+                <div class="grid md:grid-cols-2 gap-6">
+                    <!-- Image Preview -->
+                    <div class="bg-white p-6 rounded-xl shadow-lg flex flex-col items-center">
+                        <h3 class="text-xl font-semibold text-gray-700 mb-4">Hình ảnh đã Tải lên: {{ image_name }}</h3>
+                        <!-- Sử dụng route 'uploaded_file' để hiển thị ảnh đã tải lên -->
+                        <img src="{{ url_for('uploaded_file', filename=image_name) }}" alt="Uploaded Image" 
+                             class="max-w-full h-auto rounded-lg shadow-md border-4 border-gray-100 object-contain max-h-80">
+                        <p class="mt-4 text-sm text-gray-500">Kích thước ảnh có thể bị giới hạn hiển thị.</p>
+                    </div>
 
-# Global variable để chứa model và trạng thái
-EMR_MODEL = None
-MODEL_LOAD_SUCCESS = False
-DEPENDENCY_ERROR = None
+                    <!-- Prediction Details -->
+                    <div class="bg-white p-6 rounded-xl shadow-lg result-box">
+                        <h3 class="text-xl font-semibold text-pink-600 mb-4 flex items-center">
+                            <i class="fas fa-microscope mr-2"></i> Kết quả Dự đoán
+                        </h3>
+                        <!-- Sử dụng 'safe' filter vì nội dung là chuỗi HTML hợp lệ từ Python -->
+                        {{ result | safe }} 
+                        <div class="mt-6 p-3 bg-yellow-50 rounded-lg text-sm text-yellow-700 border-l-4 border-yellow-400">
+                            <strong>Lưu ý quan trọng:</strong> Kết quả này là kết quả mô phỏng. Trong y tế, luôn cần xác nhận chuyên môn y tế từ bác sĩ chẩn đoán hình ảnh.
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </main>
 
-def download_blob(file_id, destination_file_name):
-    """
-    Giả lập hoặc thực hiện hàm tải file từ Google Drive bằng File ID.
-    (Yêu cầu phải có xác thực OAuth2.0 hoặc sử dụng các thư viện như pydrive/google-api-python-client)
-    """
-    if file_id == '1EAZibH-KDkTB09IkHFCvE-db64xtfJZw':
-        raise Exception("DRIVE ID chưa được thiết lập. Vui lòng đặt biến môi trường DRIVE_MODEL_FILE_ID.")
-
-    print(f"INFO: Attempting to download model using Drive File ID: {file_id}...")
-    
-    # --- PHẦN CODE THỰC HIỆN TẢI XUỐNG THỰC TẾ (RẤT PHỨC TẠP VỚI FLASK VÀ OAUTH) ---
-    # *Đây là một ví dụ logic, không phải code chạy được ngay nếu không có xác thực Google.*
-    # if you are using google-api-python-client:
-    # try:
-    #     service = build('drive', 'v3', credentials=creds) # Cần 'creds' từ OAuth flow
-    #     request = service.files().get_media(fileId=file_id)
-    #     fh = io.FileIO(destination_file_name, 'wb')
-    #     downloader = MediaIoBaseDownload(fh, request)
-    #     done = False
-    #     while done is False:
-    #         status, done = downloader.next_chunk()
-    #     print(f"INFO: Actual Drive download successful to local cache: {destination_file_name}")
-    #     return True
-    # except Exception as e:
-    #     raise Exception(f"Lỗi tải file từ Google Drive API: {e}")
-    # -----------------------------------------------------------------------------
-
-    # --- MOCKING: Giả lập thành công cho mục đích phát triển local ---
-    # Giả lập tạo file model rỗng thành công tại local
-    with open(destination_file_name, 'w') as f:
-        f.write("MOCK_MODEL_DATA") 
-    print(f"INFO: Successfully mocked download to local cache: {destination_file_name}")
-    return True
-    # --- END MOCKING ---
-
-
-def check_dependencies_and_load_model():
-    """Kiểm tra dependency và tải mô hình AI từ Google Drive ID."""
-    global EMR_MODEL, MODEL_LOAD_SUCCESS, DEPENDENCY_ERROR
-    
-    # 1. Kiểm tra Dependency AI (TensorFlow/Keras)
-    try:
-        from tensorflow.keras.models import load_model 
-        print("Dependency check successful: TensorFlow/Keras found.")
-    except ImportError as e:
-        DEPENDENCY_ERROR = f"Lỗi thư viện AI: {e}. Vui lòng cài đặt thư viện TensorFlow/Keras."
-        print(f"ERROR: {DEPENDENCY_ERROR}")
-        MODEL_LOAD_SUCCESS = False
-        return
-
-    # 2. Kiểm tra Dependency Drive API (Chỉ để cảnh báo)
-    # Trong môi trường thực tế, bạn sẽ cần google-api-python-client hoặc pydrive
-    try:
-        import googleapiclient.discovery # Ví dụ: Cần cho Google API Client
-        print("Dependency check successful: Google API Client library assumed available.")
-    except ImportError as e:
-        print(f"WARNING: Thư viện Google API Client có thể thiếu nếu bạn dùng Google Drive API thật.")
-
-    # 3. Thực hiện tải file model từ Drive ID
-    try:
-        # Bước 1: Tải file model từ Drive xuống máy chủ
-        download_blob(DRIVE_MODEL_FILE_ID, LOCAL_MODEL_CACHE)
-        
-        # Bước 2: Tải model Keras/TF từ file đã cache
-        # EMR_MODEL = load_model(LOCAL_MODEL_CACHE)
-        
-        # --- MOCKING: Giả lập tải model thành công ---
-        EMR_MODEL = {"status": "Loaded from Drive ID", "id": DRIVE_MODEL_FILE_ID}
-        # --- END MOCKING ---
-
-        MODEL_LOAD_SUCCESS = True
-        print(f"AI Model loaded successfully using Drive ID: {DRIVE_MODEL_FILE_ID}")
-
-    except Exception as e:
-        # Lỗi xảy ra khi tải file từ Drive, hoặc file bị hỏng khi load_model
-        DEPENDENCY_ERROR = f"LỖI TẢI/LOAD MODEL TỪ DRIVE ID: {e}. Vui lòng kiểm tra ID file và xác thực Google. Lỗi: {e}"
-        print(f"FATAL ERROR: {DEPENDENCY_ERROR}")
-        MODEL_LOAD_SUCCESS = False
-
-# Thực hiện kiểm tra và tải model khi ứng dụng khởi động
-check_dependencies_and_load_model()
-
-# --- HÀM HỖ TRỢ CHUNG ---
-
-def allowed_file(filename, allowed_extensions):
-    """Kiểm tra đuôi file hợp lệ."""
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
-
-def generate_html_table(df):
-    """Tạo bảng HTML tóm tắt từ DataFrame."""
-    # Logic giữ nguyên
-    head_html = df.head(5).to_html(classes='data-table', border=0, index=False)
-    desc_df = df.describe(include='all').T.reset_index()
-    desc_df.columns = ['Thuộc tính', 'Đếm', 'Giá trị duy nhất', 'Giá trị phổ biến', 'Tần suất', 'Trung bình', 'Std', 'Min', '25%', '50%', '75%', 'Max']
-    desc_df = desc_df.fillna('-').iloc[:, :6] 
-    desc_html = desc_df.to_html(classes='summary-table', border=0, index=False)
-    
-    html = f"""
-        <h3>5 dòng dữ liệu đầu tiên:</h3>
-        {head_html}
-        <h3>Tóm tắt thống kê:</h3>
-        {desc_html}
-    """
-    return html
-
-# --- ROUTE CỦA ỨNG DỤNG ---
-
-@app.route('/')
-def dashboard():
-    """Trang Dashboard chính."""
-    return render_template('dashboard.html')
-
-
-@app.route('/emr_profile')
-def emr_profile():
-    """Trang phân tích hồ sơ EMR (CSV/Excel)."""
-    return render_template('emr_profile.html', summary=None, filename=None)
-
-
-@app.route('/upload_emr', methods=['POST'])
-def upload_emr():
-    """Xử lý tải lên file EMR (CSV/Excel) và phân tích."""
-    # Logic giữ nguyên
-    if 'file' not in request.files:
-        flash('Không có phần file trong request.', 'warning')
-        return redirect(url_for('emr_profile'))
-    
-    file = request.files['file']
-    if file.filename == '':
-        flash('Chưa chọn file.', 'warning')
-        return redirect(url_for('emr_profile'))
-
-    if file and allowed_file(file.filename, ALLOWED_EXTENSIONS_DATA):
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        
-        try:
-            file.save(filepath)
-            
-            if filename.endswith('.csv'):
-                df = pd.read_csv(filepath)
-            else:
-                df = pd.read_excel(filepath)
-            
-            summary_html = generate_html_table(df)
-            
-            os.remove(filepath)
-
-            flash(f'Phân tích file "{filename}" thành công!', 'success')
-            return render_template('emr_profile.html', summary=summary_html, filename=filename)
-
-        except Exception as e:
-            flash(f'Lỗi khi xử lý file EMR: {e}', 'danger')
-            return redirect(url_for('emr_profile'))
-    else:
-        flash('Định dạng file không được hỗ trợ. Chỉ chấp nhận CSV, XLSX, XLS.', 'danger')
-        return redirect(url_for('emr_profile'))
-
-
-@app.route('/emr_prediction')
-def emr_prediction():
-    """Trang dự đoán EMR chuyên sâu (Phân loại ảnh)."""
-    
-    # Xử lý lỗi model khi vào trang
-    if not MODEL_LOAD_SUCCESS:
-        # Nếu model không tải được, hiển thị lỗi trong popup
-        flash(DEPENDENCY_ERROR, 'danger') 
-    
-    return render_template('emr_prediction.html', result=None, image_name=None)
-
-
-@app.route('/upload_image', methods=['POST'])
-def upload_image():
-    """Xử lý tải lên ảnh và dự đoán."""
-    if not MODEL_LOAD_SUCCESS:
-        # Trả về lỗi nếu model chưa tải thành công
-        flash(DEPENDENCY_ERROR, 'danger')
-        return redirect(url_for('emr_prediction'))
-
-    if 'image' not in request.files:
-        flash('Không có file ảnh nào được tải lên.', 'warning')
-        return redirect(url_for('emr_prediction'))
-
-    file = request.files['image']
-    if file.filename == '':
-        flash('Chưa chọn file ảnh.', 'warning')
-        return redirect(url_for('emr_prediction'))
-
-    if file and allowed_file(file.filename, ALLOWED_EXTENSIONS_IMAGE):
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        
-        try:
-            file.save(filepath)
-            
-            # --- MOCKING: Giả lập dự đoán ---
-            mock_predictions = {
-                'Phân loại': np.random.choice(['Ung thư', 'Lành tính', 'Nghi ngờ'], 1)[0],
-                'Độ tin cậy': f"{np.random.uniform(0.85, 0.99):.2f}%",
-                'Khuyến nghị': "Cần hội chẩn chuyên sâu với bác sĩ chẩn đoán hình ảnh.",
-                'Model sử dụng': EMR_MODEL['id'] # Sử dụng ID file
-            }
-            
-            result_html = "<ul>"
-            for key, value in mock_predictions.items():
-                result_html += f"<li><strong>{key}:</strong> {value}</li>"
-            result_html += "</ul>"
-            
-            flash(f'Dự đoán ảnh "{filename}" thành công!', 'success')
-            return render_template('emr_prediction.html', result=result_html, image_name=filename)
-
-        except Exception as e:
-            flash(f'Lỗi khi xử lý hoặc dự đoán ảnh: {e}', 'danger')
-            return redirect(url_for('emr_prediction'))
-    else:
-        flash('Định dạng ảnh không được hỗ trợ.', 'danger')
-        return redirect(url_for('emr_prediction'))
-
-
-@app.route('/uploads/<filename>')
-def uploaded_file(filename):
-    """Serve file ảnh đã tải lên."""
-    from flask import send_from_directory
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
-
-
-if __name__ == '__main__':
-    # Đảm bảo thư mục uploads tồn tại
-    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-    
-    # Chạy ứng dụng
-    app.run(debug=True)
+        <!-- Footer -->
+        <footer class="bg-gray-800 text-white py-6 mt-10">
+            <div class="max-w-7xl mx-auto text-center text-gray-400">
+                &copy; 2025 EMR Insight AI. Thiết kế bởi Gemini.
+            </div>
+        </footer>
+    </div>
+</body>
+</html>
