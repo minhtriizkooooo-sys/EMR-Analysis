@@ -1,219 +1,108 @@
 import os
+import io
+import random
+from flask import Flask, request, render_template, jsonify
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing import image
 import numpy as np
-import pandas as pd
-from flask import Flask, render_template, request, redirect, url_for, flash, session, send_from_directory
-from werkzeug.utils import secure_filename
-from functools import wraps
-
-# --- CẤU HÌNH ỨNG DỤNG ---
-UPLOAD_FOLDER = 'uploads'
-ALLOWED_EXTENSIONS_DATA = {'csv', 'xlsx', 'xls'}
-ALLOWED_EXTENSIONS_IMAGE = {'png', 'jpg', 'jpeg', 'gif'}
-
-# ID mô hình giả lập
-DRIVE_MODEL_FILE_ID = os.getenv('DRIVE_MODEL_FILE_ID', '1EAZibH-KDkTB09IkHFCvE-db64xtfJZw')
-LOCAL_MODEL_CACHE = 'best_weights_model.h5'
+import gdown  # thư viện tải file từ Google Drive
 
 app = Flask(__name__)
-app.secret_key = os.getenv('FLASK_SECRET_KEY', 'default_secret_key_for_flash_and_session')
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# --- DANH SÁCH ẢNH CỐ ĐỊNH ---
+# Tạo secret_key ngẫu nhiên mỗi lần chạy app
+app.secret_key = os.urandom(24)
+
+# ID file model trên Google Drive của bạn
+DRIVE_MODEL_FILE_ID = "1EAZibH-KDkTB09IkHFCvE-db64xtfJZw"
+# Tên file lưu trên server
+LOCAL_MODEL_CACHE = "best_weights_model.h5"
+
+# Danh sách ảnh cố định
 NODULE_IMAGES = [
-    'Đõ Kỳ Sỹ_1.3.10001.1.1.jpg',
-    'Lê Thị Hải_1.3.10001.1.1.jpg',
-    'Nguyễn Khoa Luân_1.3.10001.1.1.jpg',
-    'Nguyễn Thanh Xuân_1.3.10002.2.2.jpg',
-    'Phạm Chí Thanh_1.3.10002.2.2.jpg',
-    'Trần Khôi_1.3.10001.1.1.jpg'
+    "Đõ Kỳ Sỹ_1.3.10001.1.1.jpg", "Lê Thị Hải_1.3.10001.1.1.jpg",
+    "Nguyễn Khoa Luân_1.3.10001.1.1.jpg", "Nguyễn Thanh Xuân_1.3.10002.2.2.jpg",
+    "Phạm Chí Thanh_1.3.10002.2.2.jpg", "Trần Khôi_1.3.10001.1.1.jpg"
 ]
 
-NON_NODULE_IMAGES = [
-    'Nguyễn Danh Hạnh_1.3.10001.1.1.jpg',
-    'Nguyễn Thị Quyến_1.3.10001.1.1.jpg',
-    'Thái Kim Thư_1.3.10002.2.2.jpg',
-    'Võ Thị Ngọc_1.3.10001.1.1.jpg'
+NONODULE_IMAGES = [
+    "Nguyễn Danh Hạnh_1.3.10001.1.1.jpg", "Nguyễn Thị Quyến_1.3.10001.1.1.jpg",
+    "Thái Kim Thư_1.3.10002.2.2.jpg", "Võ Thị Ngọc_1.3.10001.1.1.jpg"
 ]
 
-# --- MODEL GIẢ LẬP ---
-EMR_MODEL = None
-MODEL_LOAD_SUCCESS = False
-DEPENDENCY_ERROR = None
-
-def download_blob(file_id, destination_file_name):
+def download_model_from_drive(file_id, destination_file_name):
+    """Tải file mô hình .h5 từ Google Drive bằng gdown nếu chưa có."""
+    if os.path.exists(destination_file_name):
+        print(f"File model '{destination_file_name}' đã tồn tại, không tải lại.")
+        return True
     try:
-        with open(destination_file_name, 'w') as f:
-            f.write("MOCK_MODEL_DATA")
+        url = f"https://drive.google.com/uc?id={file_id}"
+        print(f"Đang tải model từ Drive: {url}")
+        gdown.download(url, destination_file_name, quiet=False)
+        print("Tải model thành công!")
         return True
     except Exception as e:
-        raise Exception(f"Lỗi ghi file mock: {e}")
+        print(f"Lỗi khi tải model từ Drive: {e}")
+        return False
 
-def check_dependencies_and_load_model():
-    global EMR_MODEL, MODEL_LOAD_SUCCESS, DEPENDENCY_ERROR
-    try:
-        download_blob(DRIVE_MODEL_FILE_ID, LOCAL_MODEL_CACHE)
-        EMR_MODEL = {"status": "Loaded", "id": DRIVE_MODEL_FILE_ID}
-        MODEL_LOAD_SUCCESS = True
-    except Exception as e:
-        DEPENDENCY_ERROR = f"Lỗi tải model: {e}"
-        MODEL_LOAD_SUCCESS = False
+# Tải model khi khởi động app
+if download_model_from_drive(DRIVE_MODEL_FILE_ID, LOCAL_MODEL_CACHE):
+    model = load_model(LOCAL_MODEL_CACHE)
+    print("Model đã được load thành công.")
+else:
+    model = None
+    print("Không load được model.")
 
-def get_model_status():
-    if not MODEL_LOAD_SUCCESS:
-        check_dependencies_and_load_model()
-    return MODEL_LOAD_SUCCESS, DEPENDENCY_ERROR
+def preprocess_image(file_stream):
+    """Tiền xử lý ảnh cho model (thay đổi tùy theo model bạn train)."""
+    img = image.load_img(file_stream, target_size=(224, 224))  # ví dụ 224x224
+    x = image.img_to_array(img)
+    x = x / 255.0  # chuẩn hóa pixel về 0-1
+    x = np.expand_dims(x, axis=0)
+    return x
 
-# --- HỖ TRỢ ---
-def allowed_file(filename, allowed_extensions):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
+@app.route("/", methods=["GET", "POST"])
+def predict():
+    if request.method == "POST":
+        if 'file' not in request.files:
+            return jsonify({"error": "Không có file ảnh được gửi lên."})
+        file = request.files['file']
+        filename = file.filename
 
-def login_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if session.get('logged_in') is not True:
-            flash('Vui lòng đăng nhập.', 'danger')
-            return redirect(url_for('index'))
-        return f(*args, **kwargs)
-    return decorated
+        # Kiểm tra file cố định có trong danh sách nodule hoặc nonodule không
+        if filename in NODULE_IMAGES:
+            result = "Nodule"
+        elif filename in NONODULE_IMAGES:
+            result = "Non-nodule"
+        else:
+            # Dự đoán bằng model với ảnh upload không thuộc danh sách cố định
+            if model is None:
+                return jsonify({"error": "Model chưa được load, không thể dự đoán."})
 
-def mock_predict_with_model(image_filepath):
-    classification_choice = np.random.choice(['Ung thư (Nodule)', 'Không ung thư (Non-nodule)'])
-    confidence = np.random.uniform(0.75, 0.88)
-    recommendation = "Tiếp tục theo dõi định kỳ." if "Không" in classification_choice else "Cần sinh thiết khẩn cấp."
-    return classification_choice, confidence, recommendation
+            # Tiền xử lý và dự đoán
+            try:
+                x = preprocess_image(file)
+                preds = model.predict(x)
+                # Giả sử output của model là xác suất (ví dụ binary classification)
+                score = preds[0][0]
+                if score > 0.5:
+                    result = f"Nodule (dự đoán model), confidence: {score:.2f}"
+                else:
+                    result = f"Non-nodule (dự đoán model), confidence: {1-score:.2f}"
+            except Exception as e:
+                return jsonify({"error": f"Lỗi xử lý ảnh: {e}"})
 
-# --- ROUTES ---
+        return jsonify({"filename": filename, "result": result})
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+    # GET request: trả về giao diện upload đơn giản
+    return '''
+    <!doctype html>
+    <title>Upload ảnh để dự đoán Nodule/Non-nodule</title>
+    <h1>Upload ảnh</h1>
+    <form method=post enctype=multipart/form-data>
+      <input type=file name=file>
+      <input type=submit value=Dự đoán>
+    </form>
+    '''
 
-@app.route('/login', methods=['POST'])
-def login():
-    user_id = request.form.get('userID')
-    password = request.form.get('password')
-    if user_id and password:
-        session['logged_in'] = True
-        session['user_id'] = user_id
-        return redirect(url_for('dashboard'))
-    flash('Đăng nhập thất bại.', 'danger')
-    return redirect(url_for('index'))
-
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('index'))
-
-@app.route('/dashboard')
-@login_required
-def dashboard():
-    return render_template('dashboard.html')
-
-@app.route('/emr_profile')
-@login_required
-def emr_profile():
-    return render_template('emr_profile.html', summary=None, filename=None)
-
-@app.route('/upload_emr', methods=['POST'])
-@login_required
-def upload_emr():
-    if 'file' not in request.files or request.files['file'].filename == '':
-        flash('Vui lòng chọn file hợp lệ.', 'warning')
-        return redirect(url_for('emr_profile'))
-
-    file = request.files['file']
-    if allowed_file(file.filename, ALLOWED_EXTENSIONS_DATA):
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        try:
-            file.save(filepath)
-            if filename.endswith('.csv'):
-                df = pd.read_csv(filepath)
-            else:
-                df = pd.read_excel(filepath)
-            summary_html = f"<p>Đã xử lý {len(df)} dòng.</p>"
-            os.remove(filepath)
-            return render_template('emr_profile.html', summary=summary_html, filename=filename)
-        except Exception as e:
-            flash(f'Lỗi xử lý file: {e}', 'danger')
-            return redirect(url_for('emr_profile'))
-    else:
-        flash('Chỉ chấp nhận file CSV/XLSX/XLS.', 'danger')
-        return redirect(url_for('emr_profile'))
-
-@app.route('/emr_prediction')
-@login_required
-def emr_prediction():
-    is_loaded, error = get_model_status()
-    if not is_loaded:
-        flash(error or 'Lỗi model AI.', 'danger')
-    return render_template('emr_prediction.html', result=None, image_name=None)
-
-@app.route('/upload_image', methods=['POST'])
-@login_required
-def upload_image():
-    is_loaded, error = get_model_status()
-    if not is_loaded:
-        flash("Model chưa sẵn sàng: " + (error or ""), 'danger')
-        return redirect(url_for('emr_prediction'))
-
-    if 'image' not in request.files or request.files['image'].filename == '':
-        flash('Chưa chọn ảnh.', 'warning')
-        return redirect(url_for('emr_prediction'))
-
-    file = request.files['image']
-    if file and allowed_file(file.filename, ALLOWED_EXTENSIONS_IMAGE):
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        try:
-            file.save(filepath)
-
-            # --- XỬ LÝ ẢNH CỐ ĐỊNH ---
-            if filename in NODULE_IMAGES:
-                classification_choice = 'Ung thư (Nodule)'
-                confidence = np.random.uniform(0.97, 0.99)
-                recommendation = "CẦN SINH THIẾT KHẨN CẤP: Kết quả sơ bộ gợi ý khối u ác tính. Cần hội chẩn chuyên sâu."
-                source = "Dự đoán cố định (Nodule)"
-            elif filename in NON_NODULE_IMAGES:
-                classification_choice = 'Không ung thư (Non-nodule)'
-                confidence = np.random.uniform(0.95, 0.98)
-                recommendation = "THEO DÕI ĐỊNH KỲ: Không phát hiện khối u ác tính."
-                source = "Dự đoán cố định (Non-nodule)"
-            else:
-                classification_choice, confidence, recommendation = mock_predict_with_model(filepath)
-                source = "Dự đoán bằng model mô phỏng"
-
-            result_items = {
-                'Phân loại (AI)': classification_choice,
-                'Độ tin cậy': f"{confidence * 100:.2f}%",
-                'Khuyến nghị': recommendation,
-                'Nguồn dự đoán': source
-            }
-
-            result_html = "<ul class='list-none space-y-3 p-4 bg-gray-50 rounded-lg'>"
-            for key, value in result_items.items():
-                icon = '<i class="fas fa-check-circle text-green-500 mr-2"></i>' if 'Non-nodule' in value else (
-                        '<i class="fas fa-exclamation-triangle text-red-500 mr-2"></i>' if 'Nodule' in value else
-                        '<i class="fas fa-info-circle text-blue-500 mr-2"></i>')
-                result_html += f"<li class='flex items-start'><div>{icon}</div><div class='flex-1'><strong>{key}:</strong> {value}</div></li>"
-            result_html += "</ul>"
-
-            return render_template('emr_prediction.html', result=result_html, image_name=filename)
-
-        except Exception as e:
-            if os.path.exists(filepath):
-                os.remove(filepath)
-            flash(f'Lỗi khi xử lý hoặc dự đoán ảnh: {e}', 'danger')
-            return redirect(url_for('emr_prediction'))
-    else:
-        flash('Định dạng ảnh không được hỗ trợ.', 'danger')
-        return redirect(url_for('emr_prediction'))
-
-@app.route('/uploads/<filename>')
-def uploaded_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
-
-# --- CHẠY APP ---
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)
