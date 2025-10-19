@@ -4,15 +4,15 @@
         <div class="text-xl font-bold text-white">EMR Insight AI</div>
         <div class="flex space-x-6">
             <a href="{{ url_for('dashboard') }}" class="text-white hover:text-green-200 transition duration-150 py-1 border-b-2 
-               {% if current_page == 'dashboard' %}border-white font-bold{% else %}border-transparent{% endif %}">
+                {% if current_page == 'dashboard' %}border-white font-bold{% else %}border-transparent{% endif %}">
                 <i class="fas fa-home mr-1"></i> Dashboard
             </a>
             <a href="{{ url_for('emr_profile') }}" class="text-white hover:text-green-200 transition duration-150 py-1 border-b-2
-               {% if current_page == 'profile' %}border-white font-bold{% else %}border-transparent{% endif %}">
+                {% if current_page == 'profile' %}border-white font-bold{% else %}border-transparent{% endif %}">
                 <i class="fas fa-file-upload mr-1"></i> Phân tích Dữ liệu
             </a>
             <a href="{{ url_for('emr_prediction') }}" class="text-white hover:text-green-200 transition duration-150 py-1 border-b-2
-               {% if current_page == 'prediction' %}border-white font-bold{% else %}border-transparent{% endif %}">
+                {% if current_page == 'prediction' %}border-white font-bold{% else %}border-transparent{% endif %}">
                 <i class="fas fa-microscope mr-1"></i> Dự đoán Hình ảnh
             </a>
         </div>
@@ -89,7 +89,8 @@
                     {% if messages %}
                         <div class="space-y-2 mb-4">
                             {% for category, message in messages %}
-                                <div class="p-3 bg-red-100 text-red-700 border border-red-400 rounded-lg font-medium" role="alert">
+                                {% set bg_color = 'bg-red-100 text-red-700 border-red-400' if category == 'danger' or category == 'warning' else 'bg-green-100 text-green-700 border-green-400' %}
+                                <div class="p-3 {{ bg_color }} border rounded-lg font-medium" role="alert">
                                     <i class="fas fa-exclamation-circle mr-2"></i> {{ message }}
                                 </div>
                             {% endfor %}
@@ -104,7 +105,7 @@
                             Chọn file Hình ảnh (JPG, PNG, GIF, BMP):
                         </label>
                         <input type="file" name="file" id="image-upload" required>
-                               
+                                
                     </div>
                     <button type="submit"
                             class="w-full flex justify-center py-3 px-4 rounded-lg shadow-lg text-sm font-medium text-white bg-primary-green hover:bg-primary-dark-green transition duration-150">
@@ -134,13 +135,11 @@
                 {% if prediction %}
                     <!-- Displaying Prediction Result -->
                     <div class="result-box p-6 rounded-xl shadow-lg border-l-8 
-                                {% if prediction.result == 'Nodule' %}
-                                    border-red-500 bg-red-50
-                                {% elif prediction.result == 'Non-nodule' %}
-                                    border-green-500 bg-green-50
-                                {% else %}
-                                    border-yellow-500 bg-yellow-50
-                                {% endif %}">
+                                 {% if prediction.result == 'Nodule' %}
+                                     border-red-500 bg-red-50
+                                 {% elif prediction.result == 'Non-nodule' %}
+                                     border-green-500 bg-green-50
+                                 {% endif %}">
                         
                         <div class="flex items-center space-x-4 mb-4">
                             {% if prediction.result == 'Nodule' %}
@@ -149,9 +148,6 @@
                             {% elif prediction.result == 'Non-nodule' %}
                                 <i class="fas fa-check-circle text-5xl text-green-600"></i>
                                 <p class="text-3xl font-extrabold text-green-700">KHÔNG CÓ DẤU HIỆU NODULE</p>
-                            {% else %}
-                                <i class="fas fa-question-circle text-5xl text-yellow-600"></i>
-                                <p class="text-3xl font-extrabold text-yellow-700">CHƯA CÓ KẾT QUẢ DỰ ĐOÁN</p>
                             {% endif %}
                         </div>
 
@@ -160,7 +156,7 @@
                         <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-inner">
                             <p class="text-lg font-semibold text-gray-600 mb-1">Xác suất Dự đoán:</p>
                             <p class="text-2xl font-bold 
-                                {% if prediction.result == 'Nodule' %}text-red-600{% elif prediction.result == 'Non-nodule' %}text-green-600{% else %}text-yellow-600{% endif %}">
+                                {% if prediction.result == 'Nodule' %}text-red-600{% elif prediction.result == 'Non-nodule' %}text-green-600{% endif %}">
                                 {{ "%.2f"|format(prediction.probability * 100) }}%
                             </p>
                         </div>
@@ -190,4 +186,3 @@
     
 </body>
 </html>
-
