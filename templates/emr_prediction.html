@@ -55,6 +55,7 @@
         }
         .modal-danger { border-top: 5px solid #EF4444; background-color: #FEF2F2; }
         .modal-warning { border-top: 5px solid #F59E0B; background-color: #FFFBEB; }
+        .modal-success { border-top: 5px solid #10B981; background-color: #ECFDF5; }
 
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(-20px); }
@@ -121,9 +122,9 @@
         <footer class="bg-gray-800 text-white py-6 mt-10">
             <div class="max-w-7xl mx-auto text-center text-gray-400">
                <p><strong>Liên hệ:</strong><br>
-              Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
-              159 Nam Kỳ Khởi Nghĩa, Quận 3, Tp. Hồ Chí Minh<br>
-              Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a></p>
+               Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
+               159 Nam Kỳ Khởi Nghĩa, Quận 3, Tp. Hồ Chí Minh<br>
+               Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a></p>
             </div>
         </footer>
     </div>
@@ -135,9 +136,8 @@
             <p id="modalBody"></p>
         </div>
     </div>
-    
+
     <script>
-        // Modal Logic
         const modal = document.getElementById("customModal");
         const closeBtn = document.getElementsByClassName("close-btn")[0];
         const modalContent = modal.querySelector('.modal-content');
@@ -145,27 +145,25 @@
         const modalBody = document.getElementById('modalBody');
 
         function showModal(category, message) {
-            // CHỈ HIỂN THỊ MODAL CHO LỖI VÀ CẢNH BÁO
-            if (category !== 'danger' && category !== 'warning') {
-                return; 
-            }
-            
-            modalContent.className = 'modal-content'; 
+            modalContent.className = 'modal-content';
             modalContent.classList.add(`modal-${category}`);
 
             let titleText = 'Thông báo';
-            let errorColor = '#EF4444'; // Red-500
-            let warningColor = '#F59E0B'; // Amber-500
+            let color = '#333';
 
             if (category === 'danger') {
                 titleText = 'Lỗi nghiêm trọng 🚨';
-                modalTitle.style.color = errorColor;
+                color = '#EF4444';
             } else if (category === 'warning') {
                 titleText = 'Cảnh báo ⚠️';
-                modalTitle.style.color = warningColor;
+                color = '#F59E0B';
+            } else if (category === 'success') {
+                titleText = 'Thành công ✅';
+                color = '#10B981';
             }
             
             modalTitle.textContent = titleText;
+            modalTitle.style.color = color;
             modalBody.textContent = message;
             modal.style.display = "block";
         }
@@ -185,7 +183,7 @@
             {% if messages %}
                 document.addEventListener('DOMContentLoaded', () => {
                     {% for category, message in messages %}
-                        showModal('{{ category }}', '{{ message }}');
+                        setTimeout(() => showModal('{{ category }}', '{{ message }}'), 100);
                     {% endfor %}
                 });
             {% endif %}
@@ -193,4 +191,3 @@
     </script>
 </body>
 </html>
-
