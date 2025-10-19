@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard - Phân tích hồ sơ EMR</title>
+    <style>
+        /* CSS ĐỒNG BỘ - TÔNG XANH LÁ, CĂN GIỮA */
+        body { 
+            font-family: Arial, sans-serif; 
+            background: #e8f5e9; 
+            margin: 0; 
+            padding: 0;
+            min-height: 100vh;
+        }
+        .container { 
+            max-width: 700px; 
+            margin: 50px auto; /* CĂN GIỮA */
+            background: #fff; 
+            padding: 30px; 
+            border-radius: 10px; 
+            box-shadow: 0 0 20px rgba(0,0,0,0.1); 
+            text-align: center;
+        }
+        h1 { 
+            color: #2e7d32; 
+            margin-bottom: 30px; 
+        }
+        .menu ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .menu li {
+            margin-bottom: 20px;
+        }
+        .menu a {
+            display: block;
+            background-color: #4caf50; /* Xanh lá đậm */
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: 600;
+            transition: background-color 0.3s, transform 0.1s;
+        }
+        .menu a:hover {
+            background-color: #2e7d32;
+            transform: translateY(-2px);
+        }
+        .contact { 
+            margin-top: 40px; 
+            font-size: 14px; 
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+            color: #666;
+            text-align: center;
+        }
+        .btn-dashboard {
+            background-color: #81c784; 
+            color: #333;
+            padding: 10px 20px;
+            border-radius: 5px;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 20px;
+        }
+        .btn-dashboard:hover {
+            background-color: #a5d6a7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Dashboard - Phân tích Hồ sơ EMR</h1>
+        
+        <p>Chọn chức năng bạn muốn thực hiện:</p>
+
+        <div class="menu">
+            <ul>
+                <!-- THAY THẾ url_for BẰNG ĐƯỜNG DẪN TĨNH -->
+                <li><a href="/emr_profile">1. Phân tích hồ sơ bệnh án EMR (CSV/Excel)</a></li>
+                <li><a href="/emr_prediction">2. Dự đoán EMR Chuyên sâu (Phân loại ảnh)</a></li>
+            </ul>
+        </div>
+        
+        <p><a href="{{ url_for('index') }}" class="btn-dashboard">
+            Quay về Trang Chính
+        </a></p>
+
+        <div class="contact">
+            <p><strong>Liên hệ:</strong><br>
+                Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
+                159 Nam Kỳ Khởi Nghĩa, Quận 3, Tp. Hồ Chí Minh<br>
+                Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a> - 0908083566</p>
+        </div>
+    </div>
+</body>
+</html>

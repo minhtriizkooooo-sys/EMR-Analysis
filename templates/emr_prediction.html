@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Dự đoán từ hồ sơ EMR</title>
+    <style>
+        body {font-family: Arial, sans-serif; background: #e8f5e9; margin: 0; padding: 0;}
+        .container {max-width: 700px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 10px;
+                    box-shadow: 0 0 20px rgba(0,0,0,0.1);}
+        h1 {color: #2e7d32; text-align: center; margin-bottom: 20px;}
+        .form-group {display: flex; gap: 10px; margin-bottom: 30px; align-items: center;}
+        input[type="file"] {flex-grow: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px;}
+        .btn, .btn-dashboard {
+            background-color: #4caf50; color: white; padding: 10px 20px; border: none;
+            border-radius: 5px; cursor: pointer; transition: 0.3s;
+        }
+        .btn:hover, .btn-dashboard:hover {background-color: #2e7d32;}
+        .btn-dashboard {text-decoration: none; text-align: center;}
+        .error {background: #ffebee; color: #d32f2f; padding: 15px; border-radius: 5px; margin-top: 10px;}
+        .result-section {margin-top: 30px; padding: 20px; background: #f1f8e9; border-radius: 8px;}
+        .result-section h2 {color: #2e7d32; border-bottom: 1px solid #c8e6c9;}
+        img {max-width: 100%; margin-top: 15px; border-radius: 8px; border: 4px solid #ddd;}
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Dự đoán EMR chuyên sâu</h1>
+    <form method="POST" enctype="multipart/form-data" action="{{ url_for('upload_image') }}">
+        <div class="form-group">
+            <input type="file" name="image" accept="image/*" required>
+            <button type="submit" class="btn">Phân tích</button>
+            <a href="{{ url_for('dashboard') }}" class="btn-dashboard"> Quay lại Dashboard</a>
+        </div>
+    </form>
+
+    {% if error %}
+        <div class="error">{{ error }}</div>
+    {% endif %}
+
+    {% if result %}
+        <div class="result-section">
+            <h2>Kết quả dự đoán:</h2>
+            <div style="font-size: 16px;">{{ result | safe }}</div>
+
+            {% if image_name %}
+                <div style="text-align:center;">
+                    <h3>Ảnh đã tải lên</h3>
+                    <img src="{{ url_for('uploaded_file', filename=image_name) }}" alt="Ảnh đã tải lên">
+                </div>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    <div class="contact">
+        <p><strong>Liên hệ:</strong><br>
+            Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
+            159 Nam Kỳ Khởi Nghĩa, Quận 3, Tp. Hồ Chí Minh<br>
+            Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a> - 0908083566</p>
+    </div>
+</div>
+</body>
+</html>
