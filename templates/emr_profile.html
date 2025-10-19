@@ -1,186 +1,161 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Phân tích hồ sơ EMR</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-    <style>
-        :root {
-            --main-green: #10B981; 
-            --dark-green: #059669; 
-            --light-bg: #f3f4f6;
-            --error-color: #EF4444; 
-            --success-color: #10B981;
-        }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phân tích hồ sơ EMR | EMR Insight AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        /* Custom CSS cho Bảng */
+        :root {
+            --main-green: #10B981; 
+            --dark-blue: #4338CA; /* Dùng cho header bảng */
+            --light-bg: #f3f4f6;
+            --error-color: #EF4444; 
+        }
 
-        body { 
-            font-family: 'Inter', sans-serif; 
-            background-color: var(--light-bg); 
-        }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--light-bg); 
+        }
 
-        /* HEADER LOGO STYLING */
-        .main-header {
-            width: 100%;
-            height: 100px;
-            background-color: #ffffff;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            margin-bottom: 10px;
-        }
+        .main-header {
+            width: 100%;
+            height: 100px;
+            background-color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 10px;
+        }
 
-        .logo-container img {
-            max-height: 80px;
-            height: auto;
-            width: auto;
-            object-fit: contain;
-        }
+        .logo-container img {
+            max-height: 80px;
+            object-fit: contain;
+        }
 
-        /* TABLE STYLING */
-        .report-section table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-        .report-section table thead tr {
-            background-color: #4338CA;
-            color: white;
-            text-transform: uppercase;
-            font-size: 0.75rem;
-        }
-        .report-section table th, 
-        .report-section table td {
-            padding: 12px 15px;
-            text-align: left;
-            border: 1px solid #E5E7EB;
-        }
-        .report-section table tbody tr {
-            background-color: white;
-            border-bottom: 1px solid #E5E7EB;
-        }
-        .report-section table tbody tr:nth-child(even) {
-            background-color: #F9FAFB;
-        }
-        .report-section table tbody tr:hover {
-            background-color: #F3F4F6;
-        }
+        .report-section table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .report-section table thead tr {
+            background-color: var(--dark-blue);
+            color: white;
+            font-size: 0.75rem;
+        }
+        .report-section table th, 
+        .report-section table td {
+            padding: 12px 15px;
+            text-align: left;
+            border: 1px solid #E5E7EB;
+            word-break: break-word;
+        }
+        .report-section table tbody tr {
+            background-color: white;
+            border-bottom: 1px solid #E5E7EB;
+        }
+        .report-section table tbody tr:nth-child(even) {
+            background-color: #F9FAFB;
+        }
+        .report-section table tbody tr:hover {
+            background-color: #F3F4F6;
+        }
 
-        /* Modal Popup Styles */
-        .modal {
-            display: none; 
-            position: fixed; 
-            z-index: 1000; 
-            left: 0;
-            top: 0;
-            width: 100%; 
-            height: 100%; 
-            overflow: auto; 
-            background-color: rgba(0,0,0,0.5); 
-        }
-        .modal-content {
-            background-color: #fefefe;
-            margin: 15% auto; 
-            padding: 20px;
-            border: 1px solid #888;
-            width: 80%; 
-            max-width: 400px;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            text-align: center;
-            animation: fadeIn 0.3s;
-        }
-        .close-btn {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            line-height: 20px;
-        }
-        .close-btn:hover,
-        .close-btn:focus {
-            color: #000;
-            text-decoration: none;
-            cursor: pointer;
-        }
-        .modal-danger { border-top: 5px solid var(--error-color); background-color: #FEF2F2; } 
-        .modal-warning { border-top: 5px solid #F59E0B; background-color: #FFFBEB; } 
-        .modal-success { border-top: 5px solid var(--success-color); background-color: #ECFDF5; } 
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    </style>
+        /* Modal Styles (Sử dụng CSS của bạn) */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); }
+        .modal-content { background-color: #fefefe; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 400px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); text-align: center; animation: fadeIn 0.3s; }
+        .close-btn { color: #aaa; float: right; font-size: 28px; font-weight: bold; line-height: 20px; }
+        .close-btn:hover, .close-btn:focus { color: #000; text-decoration: none; cursor: pointer; }
+        .modal-danger { border-top: 5px solid var(--error-color); background-color: #FEF2F2; } 
+        .modal-success { border-top: 5px solid var(--main-green); background-color: #ECFDF5; } 
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
 </head>
 <body>
 
-    <!-- HEADER VỚI LOGO CĂN GIỮA -->
-    <header class="main-header">
-        <div class="logo-container">
-            <img src="static/Logo_Marie_Curie.png" alt="Logo Marie Curie" 
-                 onerror="this.onerror=null; this.src='https://placehold.co/150x60/2e7d32/ffffff?text=LOGO'">
-        </div>
-    </header>
+    <header class="main-header">
+        <div class="logo-container">
+            <img src="static/Logo_Marie_Curie.png" alt="Logo Marie Curie" 
+                 onerror="this.onerror=null; this.src='https://placehold.co/150x60/2e7d32/ffffff?text=LOGO'">
+        </div>
+    </header>
 
-    <!-- NAVIGATION BAR -->
-    <div class="min-h-screen flex flex-col">
-        <header class="bg-indigo-700 text-white shadow-lg">
-            <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-                <a href="{{ url_for('index') }}" class="text-2xl font-bold tracking-tight">EMR Insight AI</a>
-                <div>
-                    <a href="{{ url_for('dashboard') }}" class="ml-4 hover:text-indigo-200 transition duration-150">Dashboard</a>
-                    <a href="{{ url_for('emr_prediction') }}" class="ml-4 hover:text-indigo-200 transition duration-150">Dự đoán Hình ảnh</a>
-                    <a href="{{ url_for('logout') }}" class="ml-6 bg-red-500 hover:bg-red-600 py-2 px-4 rounded-lg font-medium transition duration-150">
-                        <i class="fas fa-sign-out-alt mr-1"></i> Đăng xuất
-                    </a>
-                </div>
-            </nav>
-        </header>
+        <div class="min-h-screen flex flex-col">
+        <header class="bg-indigo-700 text-white shadow-lg">
+            <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+                <a href="{{ url_for('index') }}" class="text-2xl font-bold tracking-tight">EMR Insight AI</a>
+                <div>
+                    {# ĐÃ SỬA LỖI ĐIỀU HƯỚNG #}
+                    <a href="{{ url_for('dashboard') }}" class="ml-4 hover:text-indigo-200 transition duration-150">Dashboard</a>
+                    <a href="{{ url_for('emr_prediction') }}" class="ml-4 hover:text-indigo-200 transition duration-150">Dự đoán Hình ảnh</a>
+                    <a href="{{ url_for('logout') }}" class="ml-6 bg-red-500 hover:bg-red-600 py-2 px-4 rounded-lg font-medium transition duration-150">
+                        <i class="fas fa-sign-out-alt mr-1"></i> Đăng xuất
+                    </a>
+                </div>
+            </nav>
+        </header>
 
-        <!-- MAIN CONTENT -->
-        <main class="flex-grow max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
-            <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">Phân tích Hồ sơ Bệnh án EMR (Dữ liệu)</h2>
-            <p class="text-gray-500 mb-8 text-center">Tải lên file dữ liệu EMR (CSV, Excel) để xem báo cáo tóm tắt.</p>
+                <main class="flex-grow max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">Phân tích Hồ sơ Bệnh án EMR (Dữ liệu)</h2>
+            <p class="text-gray-500 mb-8 text-center">Tải lên file dữ liệu EMR (CSV, Excel) để xem báo cáo tóm tắt.</p>
 
-            <div class="bg-white p-6 rounded-xl shadow-lg mb-8">
-                <h3 class="text-xl font-semibold text-gray-700 mb-4">Chọn File Dữ liệu</h3>
-                <form action="{{ url_for('upload_emr') }}" method="post" enctype="multipart/form-data"
-                      class="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
-                    <input type="file" name="file" id="data-file" accept=".csv, .xlsx, .xls" required
-                           class="flex-grow w-full sm:w-auto border border-gray-300 rounded-lg p-2 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
-                    
-                    <button type="submit"
-                            class="w-full sm:w-auto py-2 px-6 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition duration-200">
-                        <i class="fas fa-chart-bar mr-2"></i> Phân tích
-                    </button>
-                </form>
-            </div>
+            <div class="bg-white p-6 rounded-xl shadow-lg mb-8">
+                <h3 class="text-xl font-semibold text-gray-700 mb-4">Chọn File Dữ liệu</h3>
+                {# SỬA action VỀ ĐÚNG URL CHÍNH XÁC #}
+                <form action="{{ url_for('emr_profile') }}" method="post" enctype="multipart/form-data"
+                      class="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
+                    <input type="file" name="file" id="data-file" accept=".csv, .xlsx, .xls" required
+                           class="flex-grow w-full sm:w-auto border border-gray-300 rounded-lg p-2 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
+                    
+                    <button type="submit"
+                            class="w-full sm:w-auto py-2 px-6 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition duration-200">
+                        <i class="fas fa-chart-bar mr-2"></i> Phân tích
+                    </button>
+                </form>
+            </div>
 
-            {% if summary %}
-                <div class="report-section bg-white p-6 rounded-xl shadow-xl mt-8">
-                    <h2 class="text-2xl font-bold text-indigo-700 mb-6 border-b pb-3">
-                        <i class="fas fa-file-alt mr-2"></i> Báo cáo Phân tích Dữ liệu {% if filename %}({{ filename }}){% endif %}
-                    </h2>
-                    {{ summary | safe }} 
-                </div>
-            {% endif %}
-        </main>
+            {% if summary %}
+                <div class="report-section bg-white p-6 rounded-xl shadow-xl mt-8">
+                    <h2 class="text-2xl font-bold text-indigo-700 mb-6 border-b pb-3">
+                        <i class="fas fa-file-alt mr-2"></i> Báo cáo Phân tích Dữ liệu {% if filename %}({{ filename }}){% endif %}
+                    </h2>
+                    {# Hiển thị nội dung HTML đã được render từ Flask #}
+                    {{ summary | safe }} 
+                </div>
+            {% endif %}
+        </main>
 
-        <!-- FOOTER -->
-        <footer class="bg-gray-800 text-white py-6 mt-10">
-            <div class="max-w-7xl mx-auto text-center text-gray-400">
-                <p><strong>Liên hệ:</strong><br>
-                    Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
-                    159 Nam Kỳ Khởi Nghĩa, Phường Xuân Hòa, Tp. Hồ Chí Minh<br>
-                    Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a></p>
-            </div>
-        </footer>
-    </div>
+                <footer class="bg-gray-800 text-white py-6 mt-10">
+            <div class="max-w-7xl mx-auto text-center text-gray-400">
+                <p><strong>Liên hệ:</strong><br>
+                    Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
+                    159 Nam Kỳ Khởi Nghĩa, Phường Xuân Hòa, Tp. Hồ Chí Minh<br>
+                    Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a></p>
+            </div>
+        </footer>
+    </div>
 
-    <!-- MODAL -->
-    <div id="customModal" class="modal">
-        <div class="modal-content">
-            <span class="close-btn">&times;</span
+        <div id="customModal" class="modal">
+        <div id="modalContent" class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <p id="modalIcon" class="text-3xl mb-3"></p>
+            <h4 id="modalTitle" class="text-lg font-bold mb-2"></h4>
+            <p id="modalBody"></p>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    {# Hiển thị thông báo flash nếu có (sẽ dùng script.js) #}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <script>
+                {% for category, message in messages %}
+                    showModal('{{ category }}', 'Thông báo', '{{ message | safe }}');
+                {% endfor %}
+            </script>
+        {% endif %}
+    {% endwith %}
+</body>
+</html>
