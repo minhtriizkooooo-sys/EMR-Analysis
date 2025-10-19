@@ -4,7 +4,13 @@ import secrets
 import shutil
 import pandas as pd
 import numpy as np
-from keras.models import load_model
+# Dùng try-except để đảm bảo load_model không làm crash app nếu TF/Keras lỗi
+try:
+    from keras.models import load_model 
+except ImportError:
+    print("❌ Lỗi: Keras/Tensorflow chưa được cài đặt hoặc import.")
+    load_model = None 
+
 from PIL import Image
 from werkzeug.utils import secure_filename
 
@@ -14,12 +20,11 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
 app.config['UPLOAD_FOLDER'] = 'uploads'
-# Thêm hỗ trợ định dạng ảnh cho việc upload
 app.config['ALLOWED_EXTENSIONS'] = {'csv', 'xlsx', 'xls', 'jpg', 'jpeg', 'png'} 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 MODEL_FOLDER = 'models'
-MERGED_MODEL_PATH = os.path.join(MODEL_FOLDER, 'best_weights_model_merged.keras')
+MERGED_MODEL_PATH = os.path.join(MODEL_FOLDER, 'merged_final_model.keras') # Đổi tên file đã ghép
 
 # =============================
 # Hàm tiện ích
@@ -28,16 +33,22 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
 # =============================
-# Ghép các phần model keras
+# Ghép các phần model keras (Cập nhật để dùng tên file mới)
 # =============================
 def merge_model_files():
-    parts = [
-        os.path.join(MODEL_FOLDER, f"best_weights_model.keras.{i:03d}")
-        for i in range(1, 5)
-    ]
-    # Kiểm tra model parts: Nếu thiếu file, in cảnh báo và trả về None
-    if not all(os.path.exists(p) for p in parts):
-        print("⚠️ Không tìm thấy đầy đủ model parts (.001–.004) trong thư mục 'models'.")
+    # Sử dụng tên file mới (model_part_1.bin, model_part_2.bin, ...)
+    parts_base_names = [f"model_part_{i}.bin" for i in range(1, 5)]
+    parts = [os.path.join(MODEL_FOLDER, name) for name in parts_base_names]
+    
+    missing_files = [p for p in parts if not os.path.exists(p)]
+    
+    if missing_files:
+        print("==================================================")
+        print("⚠️ THIẾU FILE MODEL QUAN TRỌNG TRONG MÔI TRƯỜNG RENDER!")
+        print(f"Các file model CẦN có: {parts}")
+        print(f"Các file model BỊ THIẾU: {missing_files}")
+        print("⚠️ Vui lòng đảm bảo bạn đã ĐỔI TÊN và COMMIT các file thành model_part_X.bin.")
+        print("==================================================")
         return None
     
     if os.path.exists(MERGED_MODEL_PATH):
@@ -53,21 +64,26 @@ def merge_model_files():
         print("✅ Đã ghép xong model.")
         return MERGED_MODEL_PATH
     except Exception as e:
-        print(f"❌ Lỗi khi ghép model: {e}")
+        print(f"❌ Lỗi khi ghép model (Có thể do IO/Permission): {e}")
         return None
 
 # =============================
 # Load model khi khởi động
 # =============================
-MODEL_PATH = merge_model_files()
 model = None
-if MODEL_PATH:
-    try:
-        # Quan trọng: Đảm bảo Keras và TensorFlow tương thích với phiên bản Python 3.11
-        model = load_model(MODEL_PATH) 
-        print("✅ Model y tế đã load thành công.")
-    except Exception as e:
-        print("❌ Lỗi khi load model:", e)
+if load_model: 
+    MODEL_PATH = merge_model_files()
+    if MODEL_PATH:
+        try:
+            model = load_model(MODEL_PATH) 
+            print("✅ Model y tế đã load thành công.")
+        except Exception as e:
+            print("❌ Lỗi khi load model:", e)
+            print("❌ Lỗi này có thể do xung đột phiên bản Keras/Tensorflow. Hãy kiểm tra logs build.")
+            model = None
+else:
+    print("❌ Model không thể load do Keras/Tensorflow không được import.")
+    
 
 # =============================
 # Trang chủ (Đăng nhập)
@@ -139,7 +155,6 @@ def upload_emr():
     file.save(filepath)
 
     try:
-        # Đảm bảo bạn đã cài đặt openpyxl nếu dùng excel
         df = pd.read_csv(filepath) if file.filename.endswith('.csv') else pd.read_excel(filepath)
         summary = df.describe(include='all').to_html(classes='table table-bordered table-sm')
         flash('✅ Phân tích hồ sơ EMR thành công!', 'success')
@@ -160,7 +175,7 @@ def emr_prediction():
     return render_template('emr_prediction.html')
 
 # =============================
-# Upload ảnh y tế & Dự đoán (ĐÃ CHỈNH SỬA)
+# Upload ảnh y tế & Dự đoán
 # =============================
 @app.route('/upload_image', methods=['POST'])
 def upload_image():
@@ -176,7 +191,6 @@ def upload_image():
         flash('Chưa chọn ảnh hợp lệ.', 'warning')
         return redirect(url_for('emr_prediction'))
     
-    # Kiểm tra phần mở rộng file (chỉ cho phép ảnh)
     if file.filename.rsplit('.', 1)[1].lower() not in ['jpg', 'jpeg', 'png']:
         flash('Vui lòng chỉ tải lên file ảnh (jpg, jpeg, png).', 'danger')
         return redirect(url_for('emr_prediction'))
@@ -187,8 +201,7 @@ def upload_image():
     prediction_result = None
     
     if model is None:
-        flash('❌ Hệ thống AI chưa được tải. Không thể dự đoán.', 'danger')
-        # Trả về trang để hiển thị lỗi mà không cần ảnh
+        flash('❌ Hệ thống AI chưa được tải. Vui lòng kiểm tra logs để xem model bị thiếu file hay lỗi import thư viện.', 'danger')
         return render_template('emr_prediction.html', result=None) 
     
     try:
@@ -217,15 +230,13 @@ def upload_image():
         
     except Exception as e:
         print("❌ Lỗi khi dự đoán:", e)
-        # Sử dụng flash thay vì truyền biến 'error'
         flash(f'❌ Lỗi xử lý ảnh và dự đoán: {e}', 'danger')
-        # Đặt prediction_result về None nếu có lỗi xảy ra
         prediction_result = None 
 
     return render_template(
         'emr_prediction.html', 
         image_name=file.filename, 
-        result=prediction_result # Truyền chuỗi HTML đã format
+        result=prediction_result 
     )
 
 # =============================
@@ -248,5 +259,4 @@ def uploaded_file(filename):
 # Chạy app
 # =============================
 if __name__ == '__main__':
-    # Gunicorn sẽ chạy app này trên Render, chỉ chạy debug local khi chạy file trực tiếp
     app.run(host='0.0.0.0', port=5000, debug=True)
