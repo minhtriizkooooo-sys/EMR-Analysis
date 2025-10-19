@@ -1,146 +1,98 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <title>Phân tích hồ sơ EMR bằng AI</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #e8f5e9;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-    }
-
-    .main-header {
-      width: 100%;
-      height: 100px;
-      background-color: #ffffff;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      margin-bottom: 30px;
-    }
-
-    .logo-container img {
-      max-height: 80px;
-      height: auto;
-      width: auto;
-      object-fit: contain;
-    }
-
-    .container {
-      max-width: 700px;
-      margin: 0 auto;
-      background: #fff;
-      padding: 30px;
-      border-radius: 10px;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-      flex-grow: 1;
-    }
-
-    h1, h2 {
-      color: #2e7d32;
-    }
-
-    label {
-      font-weight: bold;
-    }
-
-    input {
-      padding: 10px;
-      margin-top: 5px;
-      width: 100%;
-      margin-bottom: 15px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-    }
-
-    button {
-      padding: 10px 20px;
-      background: #2e7d32;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: background-color 0.3s;
-    }
-
-    button:hover {
-      background: #1b5e20;
-    }
-
-    .contact {
-      margin-top: 30px;
-      font-size: 14px;
-      padding-top: 15px;
-      border-top: 1px solid #eee;
-      color: #666;
-    }
-
-    .flash-message {
-      padding: 10px;
-      margin-bottom: 15px;
-      border-radius: 5px;
-      font-weight: bold;
-    }
-
-    .danger {
-      background-color: #f8d7da;
-      color: #721c24;
-      border: 1px solid #f5c6cb;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng nhập - EMR Insight AI System</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        /* Custom Green Theme */
+        :root {
+            --primary-green: #2e7d32; /* Sắc xanh lá đậm */
+            --light-green-bg: #e8f5e9; /* Sắc xanh lá nhạt cho nền */
+        }
+        .bg-primary-green { background-color: var(--primary-green); }
+        .text-primary-green { color: var(--primary-green); }
+        .border-primary-green { border-color: var(--primary-green); }
+        .hover\:bg-primary-dark-green:hover { background-color: #1b5e20; }
+        
+        /* Global Styles: Centering and Green BG */
+        body {
+            background-color: var(--light-green-bg);
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+    </style>
 </head>
 <body>
 
-  <header class="main-header">
-    <div class="logo-container">
-      <img src="static/Logo_Marie_Curie.png" alt="Logo Marie Curie"
-           onerror="this.onerror=null; this.src='https://placehold.co/150x60/2e7d32/ffffff?text=LOGO'">
-    </div>
-  </header>
+    <!-- Header - Centered Logo -->
+    <header class="w-full bg-white shadow-md p-4 flex justify-center items-center h-24">
+        <div class="logo-container">
+            <img src="static/Logo_Marie_Curie.png" alt="Logo Marie Curie"
+                 class="max-h-16 w-auto object-contain"
+                 onerror="this.onerror=null; this.src='https://placehold.co/150x64/2e7d32/ffffff?text=EMR+AI+LOGO'">
+        </div>
+    </header>
 
-  <div class="container">
-    <h1>Hệ thống Phân tích Hồ sơ Bệnh án EMR bằng AI</h1>
-    <p>Số hóa hồ sơ bệnh án là xu hướng tất yếu trong hiện đại hóa y tế. Hệ thống sử dụng LSTM - một mô hình trí tuệ nhân tạo tiên tiến để hỗ trợ bác sĩ phân tích bệnh án, xét nghiệm, hình ảnh y khoa và dự đoán bệnh tiềm ẩn.</p>
+    <!-- Main Content - Centered Card -->
+    <main class="flex-grow flex items-center justify-center p-4">
+        <div class="w-full max-w-lg bg-white p-8 rounded-xl shadow-2xl space-y-6">
+            <h1 class="text-3xl font-bold text-primary-green text-center">
+                Hệ thống Phân tích Hồ sơ Bệnh án EMR bằng AI
+            </h1>
+            <p class="text-gray-600 text-center">
+                Số hóa hồ sơ bệnh án là xu hướng tất yếu. Hệ thống AI hỗ trợ bác sĩ phân tích dữ liệu và dự đoán bệnh tiềm ẩn.
+            </p>
 
-    <h2>Đăng nhập hệ thống</h2>
-    <form method="POST" action="{{ url_for('login') }}">
-      <label for="userID">ID người dùng:</label>
-      <input type="text" id="userID" name="userID" value="user_demo" required>
+            <!-- Flash Messages (Only Danger/Errors) -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="space-y-2">
+                        {% for category, message in messages %}
+                            {% if category == 'danger' %}
+                                <div class="p-3 bg-red-100 text-red-700 border border-red-400 rounded-lg font-medium" role="alert">
+                                    <i class="fas fa-exclamation-circle mr-2"></i> {{ message }}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
 
-      <label for="password">Mật khẩu:</label>
-      <input type="password" id="password" name="password" value="Test@123456" required>
+            <h2 class="text-2xl font-semibold text-primary-green border-b border-gray-200 pb-2">Đăng nhập hệ thống</h2>
+            <form method="POST" action="{{ url_for('login') }}" class="space-y-5">
+                <div>
+                    <label for="userID" class="block text-sm font-medium text-gray-700 mb-1">ID người dùng (Demo: user_demo):</label>
+                    <input type="text" id="userID" name="userID" required 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary-green focus:border-primary-green transition duration-150">
+                </div>
+                
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Mật khẩu (Demo: Test@123456):</label>
+                    <input type="password" id="password" name="password" required
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary-green focus:border-primary-green transition duration-150">
+                </div>
 
-      <button type="submit">Đăng nhập</button>
-    </form>
+                <button type="submit"
+                        class="w-full flex justify-center py-3 px-4 rounded-lg shadow-lg text-sm font-medium text-white bg-primary-green hover:bg-primary-dark-green transition duration-150">
+                    <i class="fas fa-sign-in-alt mr-2"></i> Đăng nhập
+                </button>
+            </form>
 
-    {# HIỂN THỊ CHỈ CÁC THÔNG BÁO LỖI (DANGER) #}
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <div>
-          {% for category, message in messages %}
-            {% if category == 'danger' %}
-              <div class="flash-message danger">
-                {{ message }}
-              </div>
-            {% endif %}
-          {% endfor %}
-        </div>
-      {% endif %}
-    {% endwith %}
-
-    <div class="contact">
-      <p><strong>Liên hệ:</strong><br>
-      Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
-      159 Nam Kỳ Khởi Nghĩa, Phường Xuân Hòa, Tp. Hồ Chí Minh<br>
-      Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a></p>
-    </div>
-  </div>
+            <div class="contact pt-6 text-center text-gray-500 text-xs border-t border-gray-200 mt-6">
+                <p><strong>Liên hệ:</strong> Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
+                159 Nam Kỳ Khởi Nghĩa, Phường Xuân Hòa, Tp. Hồ Chí Minh<br>
+                Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com" class="text-primary-green hover:text-green-800">laingminhtri@gmail.com</a></p>
+            </div>
+        </div>
+    </main>
 
 </body>
 </html>
