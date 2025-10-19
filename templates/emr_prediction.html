@@ -8,38 +8,60 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+
         body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
-        
-        /* Style cho phần hiển thị kết quả dự đoán (dùng ul/li) */
+
+        /* LOGO HEADER */
+        .main-header {
+            width: 100%;
+            height: 100px;
+            background-color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 10px;
+        }
+
+        .logo-container img {
+            max-height: 80px;
+            height: auto;
+            width: auto;
+            object-fit: contain;
+        }
+
+        /* Kết quả dự đoán */
         .result-box ul { list-style: none; padding: 0; }
         .result-box li { padding: 8px 0; border-bottom: 1px dashed #e5e7eb; }
         .result-box li:last-child { border-bottom: none; }
         .result-box strong { font-weight: 600; color: #4b5563; }
-        
-        /* Modal Popup Styles */
+
+        /* Modal */
         .modal {
-            display: none; 
-            position: fixed; 
-            z-index: 1000; 
+            display: none;
+            position: fixed;
+            z-index: 1000;
             left: 0;
             top: 0;
-            width: 100%; 
-            height: 100%; 
-            overflow: auto; 
-            background-color: rgba(0,0,0,0.5); 
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
         }
+
         .modal-content {
             background-color: #fefefe;
-            margin: 15% auto; 
+            margin: 15% auto;
             padding: 20px;
             border: 1px solid #888;
-            width: 80%; 
+            width: 80%;
             max-width: 400px;
             border-radius: 10px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.3);
             text-align: center;
             animation: fadeIn 0.3s;
         }
+
         .close-btn {
             color: #aaa;
             float: right;
@@ -47,12 +69,14 @@
             font-weight: bold;
             line-height: 20px;
         }
+
         .close-btn:hover,
         .close-btn:focus {
             color: #000;
             text-decoration: none;
             cursor: pointer;
         }
+
         .modal-danger { border-top: 5px solid #EF4444; background-color: #FEF2F2; }
         .modal-warning { border-top: 5px solid #F59E0B; background-color: #FFFBEB; }
         .modal-success { border-top: 5px solid #10B981; background-color: #ECFDF5; }
@@ -64,14 +88,16 @@
     </style>
 </head>
 <body>
-    <!-- NEW HEADER WITH LOGO -->
+
+    <!-- HEADER LOGO -->
     <header class="main-header">
         <div class="logo-container">
-            <img src="static/Logo_Marie_Curie.png" alt="Logo Marie Curie" onerror="this.onerror=null; this.src='https://placehold.co/150x60/2e7d32/ffffff?text=LOGO'">
+            <img src="static/Logo_Marie_Curie.png" alt="Logo Marie Curie"
+                 onerror="this.onerror=null; this.src='https://placehold.co/150x60/2e7d32/ffffff?text=LOGO'">
         </div>
     </header>
 
-    
+    <!-- NAVIGATION -->
     <div class="min-h-screen flex flex-col">
         <header class="bg-indigo-700 text-white shadow-lg">
             <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
@@ -86,6 +112,7 @@
             </nav>
         </header>
 
+        <!-- MAIN CONTENT -->
         <main class="flex-grow max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
             <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">Dự đoán Chẩn đoán (Phân loại Hình ảnh)</h2>
             <p class="text-gray-500 mb-8 text-center">Sử dụng mô hình học sâu để phân tích hình ảnh y tế và đưa ra dự đoán.</p>
@@ -96,10 +123,10 @@
                     <label for="image-file" class="block text-sm font-medium text-gray-700">Chọn file ảnh (PNG, JPG, JPEG, GIF)</label>
                     
                     <input type="file" id="image-file" name="image" accept=".png, .jpg, .jpeg, .gif" required
-                            class="w-full border border-gray-300 rounded-lg p-2 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100">
+                        class="w-full border border-gray-300 rounded-lg p-2 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100">
                     
                     <button type="submit"
-                            class="w-full py-2 px-4 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition duration-200">
+                        class="w-full py-2 px-4 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition duration-200">
                         <i class="fas fa-upload mr-2"></i> Dự đoán
                     </button>
                 </form>
@@ -111,14 +138,13 @@
                         <h3 class="text-xl font-semibold text-gray-700 mb-4">Hình ảnh đã Tải lên: {{ image_name }}</h3>
                         <img src="{{ url_for('uploaded_file', filename=image_name) }}" alt="Uploaded Image" 
                              class="max-w-full h-auto rounded-lg shadow-md border-4 border-gray-100 object-contain max-h-80">
-                        
                     </div>
 
                     <div class="bg-white p-6 rounded-xl shadow-lg result-box">
                         <h3 class="text-2xl font-bold text-pink-600 mb-4 border-b pb-3 flex items-center">
                             <i class="fas fa-microscope mr-2"></i> Kết quả Dự đoán
                         </h3>
-                        {{ result | safe }} 
+                        {{ result | safe }}
                         <div class="mt-6 p-3 bg-yellow-50 rounded-lg text-sm text-yellow-700 border-l-4 border-yellow-400">
                             <strong>Lưu ý quan trọng:</strong> Kết quả này là kết quả mô phỏng. Trong y tế, luôn cần xác nhận chuyên môn y tế từ bác sĩ chẩn đoán hình ảnh.
                         </div>
@@ -127,78 +153,16 @@
             {% endif %}
         </main>
 
+        <!-- FOOTER -->
         <footer class="bg-gray-800 text-white py-6 mt-10">
             <div class="max-w-7xl mx-auto text-center text-gray-400">
-               <p><strong>Liên hệ:</strong><br>
-               Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
-               159 Nam Kỳ Khởi Nghĩa, Phường Xuân Hòa, Tp. Hồ Chí Minh<br>
-               Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a></p>
+                <p><strong>Liên hệ:</strong><br>
+                Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
+                159 Nam Kỳ Khởi Nghĩa, Phường Xuân Hòa, Tp. Hồ Chí Minh<br>
+                Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a></p>
             </div>
         </footer>
     </div>
 
-    <div id="customModal" class="modal">
-        <div class="modal-content">
-            <span class="close-btn">&times;</span>
-            <h2 id="modalTitle" class="text-xl font-bold mb-3"></h2>
-            <p id="modalBody"></p>
-        </div>
-    </div>
-
-    <script>
-        const modal = document.getElementById("customModal");
-        const closeBtn = document.getElementsByClassName("close-btn")[0];
-        const modalContent = modal.querySelector('.modal-content');
-        const modalTitle = document.getElementById('modalTitle');
-        const modalBody = document.getElementById('modalBody');
-
-        function showModal(category, message) {
-            modalContent.className = 'modal-content';
-            modalContent.classList.add(`modal-${category}`);
-
-            let titleText = 'Thông báo';
-            let color = '#333';
-
-            if (category === 'danger') {
-                titleText = 'Lỗi nghiêm trọng 🚨';
-                color = '#EF4444';
-            } else if (category === 'warning') {
-                titleText = 'Cảnh báo ⚠️';
-                color = '#F59E0B';
-            } else if (category === 'success') {
-                titleText = 'Thành công ✅';
-                color = '#10B981';
-            }
-            
-            modalTitle.textContent = titleText;
-            modalTitle.style.color = color;
-            modalBody.textContent = message;
-            modal.style.display = "block";
-        }
-
-        closeBtn.onclick = function() {
-            modal.style.display = "none";
-        }
-
-        window.onclick = function(event) {
-            if (event.target == modal) {
-                modal.style.display = "none";
-            }
-        }
-
-        // Jinja2 Flash Message Handler
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                document.addEventListener('DOMContentLoaded', () => {
-                    {% for category, message in messages %}
-                        setTimeout(() => showModal('{{ category }}', '{{ message }}'), 100);
-                    {% endfor %}
-                });
-            {% endif %}
-        {% endwith %}
-    </script>
-</body>
-</html>
-
-
-
+    <!-- MODAL -->
+    <
