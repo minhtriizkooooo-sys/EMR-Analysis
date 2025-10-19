@@ -1,9 +1,10 @@
 services:
   - type: web
-    name: emr-analyzer
+    name: emr-analysis
     env: python
     build:
       pythonVersion: 3.10
-    buildCommand: pip install -r requirements.txt
+      buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app
+
 
