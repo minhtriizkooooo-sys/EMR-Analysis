@@ -4,28 +4,46 @@
     <meta charset="UTF-8">
     <title>Phân tích hồ sơ EMR</title>
     <style>
+        /* Color Palette */
+        :root {
+            --main-green: #4CAF50; /* Primary button and highlight */
+            --dark-green: #2E7D32; /* Title and hover */
+            --light-bg: #e8f5e9;   /* Light background */
+            --success-bg: #e6ffe6; /* Report section background */
+            --error-bg: #ffebee;   /* Error background */
+            --error-color: #d32f2f;
+        }
+
         body { 
             font-family: Arial, sans-serif; 
-            background: #e8f5e9; 
+            background: var(--light-bg); 
             margin: 0; 
             padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
             min-height: 100vh;
         }
         .container { 
-            max-width: 700px; 
-            margin: 50px auto; 
+            max-width: 750px; 
+            margin: 50px 20px; 
             background: #fff; 
             padding: 30px; 
             border-radius: 10px; 
-            box-shadow: 0 0 20px rgba(0,0,0,0.1); 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+            width: 100%;
         }
         h1 { 
-            color: #2e7d32; 
+            color: var(--dark-green); 
             text-align: center;
-            margin-bottom: 20px; 
+            margin-bottom: 25px; 
+            border-bottom: 2px solid var(--light-bg);
+            padding-bottom: 10px;
         }
         form {
-            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 30px;
             padding: 20px;
             border: 1px solid #ddd;
@@ -33,14 +51,19 @@
             background: #f9f9f9;
         }
         input[type="file"] {
-            padding: 10px;
+            flex-grow: 1;
+            padding: 8px;
             border: 1px solid #ccc;
             border-radius: 5px;
-            margin-right: 10px;
+            margin-right: 15px;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
         }
         button[type="submit"],
         .btn-dashboard {
-            background-color: #4caf50;
+            background-color: var(--main-green);
             color: white;
             padding: 10px 20px;
             border: none;
@@ -50,50 +73,43 @@
             transition: background-color 0.3s;
             text-decoration: none;
             display: inline-block;
+            font-weight: bold;
         }
         button[type="submit"]:hover,
         .btn-dashboard:hover {
-            background-color: #2e7d32;
+            background-color: var(--dark-green);
         }
 
-        /* CSS cho Flash Messages */
-        .flash-message {
-            list-style: none;
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 5px;
-            text-align: center;
-             font-weight: bold;
-        }
-        .flash-success { background-color: #f1f8e9; color: #2e7d32; border: 1px solid #a5d6a7; }
-        .flash-danger { background-color: #ffebee; color: #d32f2f; border: 1px solid #d32f2f; }
-        .flash-warning { background-color: #fff8e1; color: #f9a825; border: 1px solid #ffecb3; }
-        
         .report-section {
             margin-top: 30px;
             padding: 20px;
-            border: 2px solid #a5d6a7;
+            border: 2px solid var(--main-green);
             border-radius: 8px;
-            background: #f1f8e9;
+            background: var(--success-bg);
+            overflow-x: auto; /* Dành cho bảng rộng */
         }
         .report-section h3 {
-            color: #2e7d32;
-            border-bottom: 1px solid #c8e6c9;
+            color: var(--dark-green);
+            border-bottom: 1px solid var(--main-green);
             padding-bottom: 10px;
+            text-align: center;
         }
         .report-section table {
+            min-width: 600px; /* Đảm bảo bảng hiển thị tốt */
             width: 100%;
             border-collapse: collapse;
             margin-top: 10px;
+            font-size: 14px;
         }
         .report-section th, .report-section td {
-            border: 1px solid #a5d6a7;
+            border: 1px solid var(--main-green);
             padding: 8px;
             text-align: left;
         }
         .report-section th {
-            background-color: #a5d6a7;
-            color: #333;
+            background-color: var(--main-green);
+            color: white;
+            font-weight: bold;
         }
         .contact { 
             clear: both;
@@ -104,6 +120,51 @@
             color: #666;
             text-align: center;
         }
+        /* Modal Popup Styles */
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 1000; 
+            left: 0;
+            top: 0;
+            width: 100%; 
+            height: 100%; 
+            overflow: auto; 
+            background-color: rgba(0,0,0,0.5); 
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto; 
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%; 
+            max-width: 400px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            text-align: center;
+            animation: fadeIn 0.3s;
+        }
+        .close-btn {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            line-height: 20px;
+        }
+        .close-btn:hover,
+        .close-btn:focus {
+            color: #000;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .modal-success { border-top: 5px solid var(--main-green); background-color: var(--success-bg); }
+        .modal-danger { border-top: 5px solid var(--error-color); background-color: var(--error-bg); }
+        .modal-warning { border-top: 5px solid #ffc107; background-color: #fff8e1; }
+        #modalTitle { margin-top: 0; color: var(--dark-green); }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
@@ -112,25 +173,15 @@
         
         <form method="POST" enctype="multipart/form-data" action="{{ url_for('upload_emr') }}">
             <input type="file" name="file" accept=".csv, .xlsx, .xls" required>
-            <button type="submit">Phân tích</button>
-            <a href="{{ url_for('dashboard') }}" class="btn-dashboard">Quay lại Dashboard</a>
+            <div class="button-group">
+                <button type="submit">Phân tích</button>
+                <a href="{{ url_for('dashboard') }}" class="btn-dashboard">Quay lại Dashboard</a>
+            </div>
         </form>
-
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <ul style="padding: 0;">
-                    {% for category, message in messages %}
-                        <li class="flash-message flash-{{ category }}">
-                            {{ message }}
-                        </li>
-                    {% endfor %}
-                </ul>
-            {% endif %}
-        {% endwith %}
 
         {% if summary %}
             <div class="report-section">
-                <h3>Tóm tắt Dữ liệu Hồ sơ</h3>
+                <h3>Tóm tắt Dữ liệu Hồ sơ {% if filename %}({{ filename }}){% endif %}</h3>
                 {{ summary | safe }}
             </div>
         {% endif %}
@@ -142,5 +193,68 @@
                 Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a> - 0908083566</p>
         </div>
     </div>
+
+    <!-- Modal Popup Structure -->
+    <div id="customModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2 id="modalTitle"></h2>
+            <p id="modalBody"></p>
+        </div>
+    </div>
+    
+    <script>
+        // Modal Logic
+        const modal = document.getElementById("customModal");
+        const closeBtn = document.getElementsByClassName("close-btn")[0];
+        const modalContent = modal.querySelector('.modal-content');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalBody = document.getElementById('modalBody');
+
+        function showModal(category, message) {
+            // Loại bỏ các class cũ và thêm class mới
+            modalContent.className = 'modal-content'; 
+            modalContent.classList.add(`modal-${category}`);
+
+            // Thiết lập tiêu đề dựa trên loại thông báo
+            let titleText = 'Thông báo';
+            if (category === 'success') {
+                titleText = 'Thành công';
+                modalTitle.style.color = 'var(--dark-green)';
+            } else if (category === 'danger') {
+                titleText = 'Lỗi nghiêm trọng';
+                modalTitle.style.color = 'var(--error-color)';
+            } else if (category === 'warning') {
+                titleText = 'Cảnh báo';
+                modalTitle.style.color = '#ffc107';
+            }
+            
+            modalTitle.textContent = titleText;
+            modalBody.textContent = message;
+            modal.style.display = "block";
+        }
+
+        closeBtn.onclick = function() {
+            modal.style.display = "none";
+        }
+
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+
+        // Jinja2 Flash Message Handler
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                document.addEventListener('DOMContentLoaded', () => {
+                    {% for category, message in messages %}
+                        // Gọi showModal cho mỗi thông báo flash
+                        showModal('{{ category }}', '{{ message }}');
+                    {% endfor %}
+                });
+            {% endif %}
+        {% endwith %}
+    </script>
 </body>
 </html>
