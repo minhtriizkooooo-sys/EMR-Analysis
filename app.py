@@ -12,6 +12,7 @@ try:
 except ImportError:
     pass 
 try:
+    # Chỉ import khi cần thiết
     from tensorflow.keras.models import load_model 
 except ImportError:
     pass
@@ -22,26 +23,25 @@ ALLOWED_EXTENSIONS_DATA = {'csv', 'xlsx', 'xls'}
 ALLOWED_EXTENSIONS_IMAGE = {'png', 'jpg', 'jpeg', 'gif'}
 
 # --- CẤU HÌNH GOOGLE DRIVE FILE ID BẰNG BIẾN MÔI TRƯỜNG --- 
+# Dùng ID thật của bạn làm giá trị mặc định
 DRIVE_MODEL_FILE_ID = os.getenv('DRIVE_MODEL_FILE_ID', '1EAZibH-KDkTB09IkHFCvE-db64xtfJZw') 
-LOCAL_MODEL_CACHE = 'best_weights_model.h5' # Tên file cache model trên server
+LOCAL_MODEL_CACHE = 'best_weights_model.h5' 
 
 app = Flask(__name__)
-# Đảm bảo SECRET_KEY được đặt cho Flash Messages
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'default_secret_key_for_flash') 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # --- 1. XỬ LÝ LỖI IMPORT VÀ LOAD MODEL TỪ DRIVE ID ---
 
-# Global variable để chứa model và trạng thái
 EMR_MODEL = None
 MODEL_LOAD_SUCCESS = False
 DEPENDENCY_ERROR = None
 
 def download_blob(file_id, destination_file_name):
     """
-    Giả lập hàm tải file từ Google Drive bằng File ID.
-    (Trong môi trường thực tế, cần OAuth 2.0 và Google Drive API thật)
+    Giả lập hàm tải file từ Google Drive. 
+    Trong môi trường thực tế, ID file này cần quyền truy cập công khai hoặc xác thực OAuth.
     """
     print(f"INFO: Attempting to download model using Drive File ID: {file_id}...")
 
@@ -53,20 +53,21 @@ def download_blob(file_id, destination_file_name):
         print(f"INFO: Successfully mocked download to local cache: {destination_file_name}")
         return True
     except Exception as e:
+        # Lỗi này chỉ xảy ra nếu không thể tạo/ghi file trên hệ thống
         raise Exception(f"Lỗi khi ghi file mock: {e}")
 
 def check_dependencies_and_load_model():
-    """Kiểm tra dependency và tải mô hình AI từ Google Drive ID."""
+    """Kiểm tra dependency và tải mô hình AI từ Google Drive ID (Mocked)."""
     global EMR_MODEL, MODEL_LOAD_SUCCESS, DEPENDENCY_ERROR
     
     # 1. Kiểm tra Dependency AI (TensorFlow/Keras)
     try:
-        from tensorflow.keras.models import load_model # Kiểm tra sự tồn tại của thư viện
+        from tensorflow.keras.models import load_model 
         print("Dependency check successful: TensorFlow/Keras found.")
     except ImportError as e:
-        DEPENDENCY_ERROR = f"Lỗi thư viện AI: {e}. Vui lòng cài đặt thư viện TensorFlow/Keras."
-        print(f"ERROR: {DEPENDENCY_ERROR}")
+        DEPENDENCY_ERROR = f"Lỗi thư viện AI: {e}. Vui lòng cài đặt thư viện TensorFlow/Keras để chạy model thực."
         MODEL_LOAD_SUCCESS = False
+        print(f"ERROR: {DEPENDENCY_ERROR}")
         return
         
     # 2. Thực hiện tải file model từ Drive ID (hoặc Mocking)
@@ -77,14 +78,11 @@ def check_dependencies_and_load_model():
         
         # --- MOCKING: Giả lập tải model thành công ---
         EMR_MODEL = {"status": "Loaded from Drive ID (Mocked)", "id": DRIVE_MODEL_FILE_ID}
-        # --- END MOCKING ---
-
         MODEL_LOAD_SUCCESS = True
-        print(f"AI Model loaded successfully using Drive ID: {DRIVE_MODEL_FILE_ID}")
+        print(f"AI Model loaded successfully (Mocked). ID: {DRIVE_MODEL_FILE_ID}")
 
     except Exception as e:
-        # Lỗi xảy ra khi tải file từ Drive, hoặc file bị hỏng khi load_model
-        DEPENDENCY_ERROR = f"LỖI TẢI/LOAD MODEL TỪ DRIVE ID: {e}. Vui lòng kiểm tra ID file và xác thực Google. Lỗi: {e}"
+        DEPENDENCY_ERROR = f"LỖI TẢI/LOAD MODEL TỪ DRIVE ID: {e}. Vui lòng kiểm tra ID file và xác thực Drive API."
         print(f"FATAL ERROR: {DEPENDENCY_ERROR}")
         MODEL_LOAD_SUCCESS = False
 
@@ -118,23 +116,19 @@ def generate_html_table(df):
 @app.route('/')
 def index():
     """Trang chủ/Đăng nhập (index.html). Endpoint là 'index'."""
-    # Giả định template này chứa form đăng nhập hoặc chào mừng
     return render_template('index.html')
 
 
 @app.route('/login', methods=['POST'])
 def login():
     """Xử lý đăng nhập (MOCK) và điều hướng đến Dashboard."""
-    # Đây là nơi logic xác thực người dùng sẽ diễn ra
-    # Giả lập đăng nhập thành công
+    # Logic xác thực sẽ ở đây
     flash('Đăng nhập thành công! Chuyển hướng đến Dashboard.', 'success')
     return redirect(url_for('dashboard'))
 
 @app.route('/dashboard')
 def dashboard():
     """Trang Dashboard chính (dashboard.html). Endpoint là 'dashboard'."""
-    # Lỗi BuildError sẽ được khắc phục vì template giờ đây có thể gọi 'index' và 'dashboard'
-    # Lưu ý: Cần đảm bảo file dashboard.html tồn tại trong thư mục templates
     return render_template('dashboard.html')
 
 
@@ -146,7 +140,7 @@ def emr_profile():
 
 @app.route('/upload_emr', methods=['POST'])
 def upload_emr():
-    """Xử lý tải lên file EMR (CSV/Excel) và phân tích. Endpoint là 'upload_emr'."""
+    """Xử lý tải lên file EMR (CSV/Excel) và phân tích."""
     if 'file' not in request.files:
         flash('Không có phần file trong request.', 'warning')
         return redirect(url_for('emr_profile'))
@@ -169,7 +163,6 @@ def upload_emr():
                 df = pd.read_excel(filepath)
             
             summary_html = generate_html_table(df)
-            
             os.remove(filepath)
 
             flash(f'Phân tích file "{filename}" thành công!', 'success')
@@ -185,9 +178,7 @@ def upload_emr():
 
 @app.route('/emr_prediction')
 def emr_prediction():
-    """Trang dự đoán EMR chuyên sâu (Phân loại ảnh). Endpoint là 'emr_prediction'."""
-    
-    # Xử lý lỗi model khi vào trang
+    """Trang dự đoán EMR chuyên sâu (Phân loại ảnh)."""
     if not MODEL_LOAD_SUCCESS:
         flash(DEPENDENCY_ERROR, 'danger') 
     
@@ -196,9 +187,9 @@ def emr_prediction():
 
 @app.route('/upload_image', methods=['POST'])
 def upload_image():
-    """Xử lý tải lên ảnh và dự đoán. Endpoint là 'upload_image'."""
+    """Xử lý tải lên ảnh và dự đoán."""
     if not MODEL_LOAD_SUCCESS:
-        flash(DEPENDENCY_ERROR, 'danger')
+        flash("Tính năng dự đoán không khả dụng vì Model AI chưa được tải thành công.", 'danger')
         return redirect(url_for('emr_prediction'))
 
     if 'image' not in request.files:
@@ -222,10 +213,10 @@ def upload_image():
                 'Phân loại': np.random.choice(['Ung thư', 'Lành tính', 'Nghi ngờ'], 1)[0],
                 'Độ tin cậy': f"{np.random.uniform(0.85, 0.99):.2f}%",
                 'Khuyến nghị': "Cần hội chẩn chuyên sâu với bác sĩ chẩn đoán hình ảnh.",
-                'Model sử dụng': EMR_MODEL['id'] # Sử dụng ID file
+                'Model sử dụng': EMR_MODEL['id'] 
             }
             
-            # Tạo HTML cho kết quả
+            # ĐÃ SỬA LỖI CÚ PHÁP: Tạo HTML bằng cấu trúc <ul>/<li> chuẩn
             result_html = "<ul>"
             for key, value in mock_predictions.items():
                 result_html += f"<li><strong>{key}:</strong> {value}</li>"
@@ -250,8 +241,5 @@ def uploaded_file(filename):
 
 
 if __name__ == '__main__':
-    # Đảm bảo thư mục uploads tồn tại
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-    
-    # Chạy ứng dụng
     app.run(debug=True)
