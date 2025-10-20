@@ -12,23 +12,30 @@ import pandas as pd
 from PIL import Image
 from flask import (
     Flask, flash, redirect, render_template,
-    request, session, url_for
+    request, session, url_for, jsonify
 )
 
+# Import các thư viện cần thiết cho mô hình
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
 
 # --- Flask Setup ---
 app = Flask(__name__)
-app.secret_key = os.urandom(24)  # Đổi khi deploy thật
+# KHUYẾN NGHỊ: Đổi secret key khi deploy thật
+app.secret_key = os.urandom(24) 
 
 # --- Model Config ---
 MODEL_DIR = "models"
 MODEL_FILENAME = "best_weights_model.keras"
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILENAME)
+IMAGE_SIZE = (224, 224) # Kích thước đầu vào chuẩn của mô hình (thường là 224x224 cho nhiều CNN)
 
-# --- Ghép các phần model ---
+# --- Chuẩn bị Thư mục và Ghép các phần model ---
+if not os.path.exists(MODEL_DIR):
+    os.makedirs(MODEL_DIR)
+
 def join_model_parts():
+    """Ghép các phần model đã chia nhỏ thành file model hoàn chỉnh."""
     if os.path.exists(MODEL_PATH):
         print(f"✅ Model đã tồn tại: {MODEL_PATH}")
         return
@@ -63,21 +70,31 @@ join_model_parts()
 # --- Load model ---
 model = None
 try:
-    model = load_model(MODEL_PATH, compile=False)
+    # Compile=False được sử dụng vì chúng ta chỉ đang load để inference (dự đoán)
+    model = load_model(MODEL_PATH, compile=False) 
     print("✅ Model thật đã được load.")
 except Exception as e:
-    print(f"❌ Không thể load model: {e}")
+    # Ghi lại lỗi chi tiết khi load model
+    print(f"❌ KHÔNG THỂ LOAD MODEL TỪ ĐƯỜNG DẪN: {MODEL_PATH}")
+    print(f"Chi tiết lỗi: {e}")
     model = None
 
 # --- Helper Functions ---
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp'}
 
 def allowed_file(filename):
+    """Kiểm tra định dạng file ảnh hợp lệ."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def preprocess_image(file_stream):
-    img = image.load_img(file_stream, target_size=(224, 224))
-    x = image.img_to_array(img) / 255.0
+    """Tiền xử lý ảnh cho mô hình dự đoán Nodule Detection (Resize, Normalize)."""
+    # load_img cần một file path hoặc stream
+    img = image.load_img(file_stream, target_size=IMAGE_SIZE)
+    # Chuyển đổi sang array
+    x = image.img_to_array(img)
+    # Chuẩn hóa (normalize) về 0-1
+    x = x / 255.0
+    # Thêm chiều batch (batch dimension)
     x = np.expand_dims(x, axis=0)
     return x
 
@@ -91,11 +108,12 @@ def index():
 def login():
     username = request.form.get("userID")
     password = request.form.get("password")
+    # Giữ nguyên logic đăng nhập demo
     if username == "user_demo" and password == "Test@123456":
         session['user'] = username
         return redirect(url_for("dashboard"))
     else:
-        flash("Sai ID hoặc mật khẩu.", "danger")
+        flash("Sai ID hoặc mật khẩu.", "danger") 
         return redirect(url_for("index"))
 
 @app.route("/dashboard")
@@ -103,7 +121,8 @@ def dashboard():
     if 'user' not in session:
         flash("Vui lòng đăng nhập.", "danger")
         return redirect(url_for("index"))
-    return render_template("dashboard.html", model=model)
+    # Truyền trạng thái model để template có thể hiển thị cảnh báo
+    return render_template("dashboard.html", model_ready=(model is not None))
 
 @app.route("/emr_profile", methods=["GET", "POST"])
 def emr_profile():
@@ -116,6 +135,7 @@ def emr_profile():
 
     if request.method == "POST":
         file = request.files.get('file')
+        # ... (Giữ nguyên logic xử lý file CSV/Excel) ...
         if not file or file.filename == '':
             flash("Không có file nào được chọn.", "danger")
             return render_template('emr_profile.html', summary=None)
@@ -149,11 +169,16 @@ def emr_profile():
             info = f"<p><strong>Số dòng:</strong> {rows} | <strong>Số cột:</strong> {cols}</p>"
             table_html = df.head().to_html(classes="table table-striped", index=False)
             summary = info + "<ul>" + "".join(col_info) + "</ul>" + "<h4>5 dòng đầu tiên:</h4>" + table_html
+            flash(f"Phân tích file {filename} thành công!", "success") # Thêm flash thành công
 
         except Exception as e:
-            summary = f"<p>Lỗi xử lý file: {e}</p>"
+            # Ghi log lỗi và thông báo cho người dùng
+            print(f"Lỗi khi phân tích EMR: {e}") 
+            summary = f"<p class='text-red-500'>Lỗi xử lý file: {e}</p>"
+            flash("Có lỗi xảy ra trong quá trình phân tích file.", "danger")
 
     return render_template("emr_profile.html", summary=summary, filename=filename)
+
 
 @app.route("/emr_prediction", methods=["GET", "POST"])
 def emr_prediction():
@@ -168,31 +193,57 @@ def emr_prediction():
     if request.method == "POST":
         file = request.files.get('file')
         if not file or not allowed_file(file.filename):
-            flash("Vui lòng chọn file ảnh hợp lệ.", "danger")
+            flash("Vui lòng chọn file ảnh hợp lệ (JPG, PNG, GIF, BMP).", "danger")
             return redirect(url_for("emr_prediction"))
 
         filename = file.filename
         try:
             img_bytes = file.read()
+            # Mã hóa ảnh để hiển thị trên web
             image_b64 = base64.b64encode(img_bytes).decode('utf-8')
 
             if model is None:
-                flash("Model chưa sẵn sàng.", "danger")
-                return redirect(url_for("emr_prediction"))
+                # Thông báo model chưa sẵn sàng
+                flash("Model chưa sẵn sàng. Vui lòng kiểm tra log máy chủ để biết chi tiết.", "danger")
+                return render_template("emr_prediction.html", model_ready=False)
 
-            x = preprocess_image(io.BytesIO(img_bytes))
+            # 1. Tiền xử lý ảnh
+            x = preprocess_image(io.BytesIO(img_bytes)) 
+            
+            # 2. Dự đoán với mô hình thật
             preds = model.predict(x)
-            score = preds[0][0]
+            
+            # Giả sử mô hình trả về xác suất nhị phân (xác suất của lớp '1' - Nodule)
+            # preds[0][0] là xác suất của lớp Nodule
+            score = preds[0][0] 
 
-            label = "Nodule" if score > 0.5 else "Non-nodule"
-            probability = float(score if score > 0.5 else 1 - score)
-            prediction = {"result": label, "probability": probability}
-
-            flash(f"Kết quả: {label} - {probability:.2%}", "success")
+            # 3. Phân loại và định dạng kết quả
+            THRESHOLD = 0.5
+            
+            if score >= THRESHOLD:
+                # Nếu score >= 0.5, dự đoán là Nodule
+                label = "Nodule"
+                probability = score
+            else:
+                # Nếu score < 0.5, dự đoán là Non-nodule
+                label = "Non-nodule"
+                probability = 1.0 - score 
+            
+            prediction = {
+                "result": label, 
+                "probability": probability
+            }
+            
+            # Hiển thị thông báo thành công
+            flash(f"Dự đoán hoàn tất: {label} - {probability:.2%}", "success")
+            
         except Exception as e:
-            flash(f"Lỗi xử lý ảnh: {e}", "danger")
+            # Ghi log lỗi chi tiết khi xảy ra lỗi trong quá trình dự đoán
+            print(f"LỖI XỬ LÝ ẢNH HOẶC DỰ ĐOÁN: {e}")
+            flash(f"Lỗi xử lý ảnh hoặc dự đoán: {e}", "danger")
 
-    return render_template("emr_prediction.html", prediction=prediction, filename=filename, image_b64=image_b64, model=model)
+    # Truyền trạng thái model để template có thể kiểm tra trạng thái
+    return render_template("emr_prediction.html", prediction=prediction, filename=filename, image_b64=image_b64, model_ready=(model is not None))
 
 @app.route("/logout")
 def logout():
