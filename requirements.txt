@@ -1,11 +1,13 @@
+# Sử dụng phiên bản TF/Keras mới hơn để khắc phục lỗi deserialize Functional
+tensorflow-cpu==2.16.1 
+numpy
+pandas
+Pillow
 Flask
 gunicorn
-pandas
-numpy
-Pillow
-tensorflow-cpu==2.12.0
-keras==2.12.0
-gdown
 
-
-
+# Các thư viện khác đã thấy trong log (đảm bảo đầy đủ)
+scipy
+h5py
+# (Nếu bạn muốn kiểm soát Keras riêng, hãy dùng Keras 3, nhưng thường dùng TF là đủ)
+# keras==3.4.0
