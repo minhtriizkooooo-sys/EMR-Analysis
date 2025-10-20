@@ -6,6 +6,7 @@ import io
 import glob
 import base64
 import random
+import re
 import numpy as np
 import pandas as pd
 from PIL import Image
@@ -19,20 +20,28 @@ from tensorflow.keras.preprocessing import image
 
 # --- Flask Setup ---
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+app.secret_key = os.urandom(24)  # Đổi khi deploy thật
 
 # --- Model Config ---
 MODEL_DIR = "models"
 MODEL_FILENAME = "best_weights_model.keras"
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILENAME)
 
-# Ghép các part thành model nếu chưa có
+# --- Ghép các phần model ---
 def join_model_parts():
     if os.path.exists(MODEL_PATH):
         print(f"✅ Model đã tồn tại: {MODEL_PATH}")
         return
 
-    model_parts = sorted(glob.glob(os.path.join(MODEL_DIR, "best_weights_model.keras.part*")))
+    part_pattern = os.path.join(MODEL_DIR, "best_weights_model.keras.part*")
+    model_parts = glob.glob(part_pattern)
+
+    def extract_part_number(path):
+        match = re.search(r'\.part(\d+)', path)
+        return int(match.group(1)) if match else -1
+
+    model_parts = sorted(model_parts, key=extract_part_number)
+
     if not model_parts:
         print("❌ Không tìm thấy phần nào của model.")
         return
@@ -41,26 +50,28 @@ def join_model_parts():
     try:
         with open(MODEL_PATH, "wb") as outfile:
             for part in model_parts:
+                print(f"🧩 Ghép: {part}")
                 with open(part, "rb") as infile:
                     outfile.write(infile.read())
-        print("✅ Ghép model thành công.")
+        print("✅ Ghép model thành công: ", MODEL_PATH)
     except Exception as e:
         print(f"❌ Lỗi khi ghép model: {e}")
 
-# Gọi hàm ghép part
+# Gọi ghép model nếu cần
 join_model_parts()
 
-# Load model thật
+# --- Load model ---
 model = None
 try:
     model = load_model(MODEL_PATH, compile=False)
     print("✅ Model thật đã được load.")
 except Exception as e:
-    print(f"❌ Không thể load model thật: {e}")
+    print(f"❌ Không thể load model: {e}")
     model = None
 
-# --- Helper ---
+# --- Helper Functions ---
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp'}
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -92,7 +103,7 @@ def dashboard():
     if 'user' not in session:
         flash("Vui lòng đăng nhập.", "danger")
         return redirect(url_for("index"))
-    return render_template("dashboard.html")
+    return render_template("dashboard.html", model=model)
 
 @app.route("/emr_profile", methods=["GET", "POST"])
 def emr_profile():
@@ -181,7 +192,7 @@ def emr_prediction():
         except Exception as e:
             flash(f"Lỗi xử lý ảnh: {e}", "danger")
 
-    return render_template("emr_prediction.html", prediction=prediction, filename=filename, image_b64=image_b64)
+    return render_template("emr_prediction.html", prediction=prediction, filename=filename, image_b64=image_b64, model=model)
 
 @app.route("/logout")
 def logout():
@@ -189,6 +200,6 @@ def logout():
     flash("Đã đăng xuất.", "success")
     return redirect(url_for("index"))
 
-# --- Run ---
+# --- Run App ---
 if __name__ == "__main__":
     app.run(debug=True)
