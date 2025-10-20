@@ -1,13 +1,14 @@
 # app.py # -*- coding: utf-8 -*-
-# CẬP NHẬT: Xử lý ghép file model, loại bỏ mô phỏng cố định, và khắc phục lỗi Load Model Keras.
+# CẬP NHẬT CUỐI CÙNG: Sửa lỗi 'random is not defined' và cố gắng tải model Keras.
 
 import base64
 import os
 import io
 from PIL import Image
+import random  # <--- ĐÃ DI CHUYỂN LÊN ĐÂY ĐỂ LUÔN KHẢ DỤNG
+import pandas as pd # <-- Đã di chuyển lên đây để tránh lỗi scope
 
 # ******* CẤU HÌNH KERAS BACKEND CHO KHẢ NĂNG TƯƠNG THÍCH CAO HƠN *******
-# Rất quan trọng để khắc phục lỗi deserialize (lỗi 502) trên các môi trường mới
 os.environ["KERAS_BACKEND"] = "tensorflow"
 # **********************************************************************
 
@@ -44,10 +45,10 @@ except ImportError:
         def img_to_array(self, img): return np.zeros((224, 224, 3))
     image = MockImage()
     np = __import__('numpy') 
-    random = __import__('random') 
 
-import pandas as pd
-# random chỉ dùng cho mock probability nếu model load thất bại
+# ***************************************************************
+# random và pandas đã được di chuyển lên đầu file.
+# ***************************************************************
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -139,7 +140,7 @@ def login():
     
     if username == "user_demo" and password == "Test@123456":
         session['user'] = username
-        # LOẠI BỎ FLASH MESSAGE ĐĂNG NHẬP THÀNH CÔNG (Yêu cầu 1)
+        # LOẠI BỎ FLASH MESSAGE ĐĂNG NHẬP THÀNH CÔNG
         return redirect(url_for("dashboard"))
     else:
         flash("Sai ID hoặc mật khẩu.", "danger")
