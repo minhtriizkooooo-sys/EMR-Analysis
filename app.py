@@ -1,12 +1,12 @@
 # app.py # -*- coding: utf-8 -*-
-# CẬP NHẬT CUỐI CÙNG: Sửa lỗi 'random is not defined' và cố gắng tải model Keras.
+# CẬP NHẬT: THAY ĐỔI ĐỂ CỐ GẮNG LOAD VÀ SỬ DỤNG MODEL KERAS THẬT
 
 import base64
 import os
 import io
 from PIL import Image
-import random  # <--- ĐÃ DI CHUYỂN LÊN ĐÂY ĐỂ LUÔN KHẢ DỤNG
-import pandas as pd # <-- Đã di chuyển lên đây để tránh lỗi scope
+import random  
+import pandas as pd 
 
 # ******* CẤU HÌNH KERAS BACKEND CHO KHẢ NĂNG TƯƠNG THÍCH CAO HƠN *******
 os.environ["KERAS_BACKEND"] = "tensorflow"
@@ -24,31 +24,29 @@ from flask import (
 )
 
 # Thư viện cho AI/Data
+TF_LOADED = False # Khởi tạo mặc định
 try:
     from tensorflow.keras.models import load_model
     from tensorflow.keras.preprocessing import image
     import numpy as np
-    TF_LOADED = True
+    TF_LOADED = True # Đã tải thành công thư viện
     print("TensorFlow/Keras đã được tải thành công.")
 except ImportError:
     print("FATAL ERROR: TensorFlow/Keras không được tìm thấy. Ứng dụng sẽ chạy ở chế độ MOCK.")
-    TF_LOADED = False
     
-    # Mock classes để tránh crash khi thiếu thư viện
+    # Định nghĩa các mock classes và biến để chế độ MOCK chạy KHÔNG cần import TensorFlow
     class MockModel:
         def predict(self, x, verbose=0):
-            # Giả lập xác suất Nodule
             return np.array([[0.55 + random.uniform(-0.05, 0.05)]])
     def load_model(path): return MockModel()
     class MockImage:
         def load_img(self, file_stream, target_size): return object()
         def img_to_array(self, img): return np.zeros((224, 224, 3))
+    
+    # Giả lập biến
+    import numpy as np
     image = MockImage()
-    np = __import__('numpy') 
 
-# ***************************************************************
-# random và pandas đã được di chuyển lên đầu file.
-# ***************************************************************
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -103,13 +101,13 @@ if TF_LOADED:
     if check_and_join_model_parts():
         try:
             print(f"Đang TẢI model Keras THẬT từ đường dẫn: {FULL_MODEL_PATH}...")
-            # Sử dụng compile=False để tránh lỗi khi optimizer không tương thích (phòng ngừa lỗi 502)
+            # Cố gắng load model thật, đây là điểm gây ra lỗi 502 nếu RAM không đủ
             model = load_model(FULL_MODEL_PATH, compile=False) 
             print("Model Keras THẬT đã được load thành công vào bộ nhớ.")
         except Exception as e:
-            # Bắt lỗi load model để tránh crash ứng dụng ngay khi khởi động
+            # Nếu load model thật thất bại (thường do lỗi RAM hoặc phiên bản Keras)
             print(f"LỖI NGHIÊM TRỌNG khi load model Keras THẬT: {e}")
-            print("Ứng dụng sẽ chạy ở chế độ MOCK (dự đoán giả lập).")
+            print("Ứng dụng sẽ chuyển sang chế độ MOCK (dự đoán giả lập).")
             model = None 
 else:
     print("Bỏ qua việc tải và load model do thiếu thư viện TF/Keras. Chế độ MOCK.")
@@ -117,10 +115,15 @@ else:
 
 def preprocess_image(file_stream):
     """Tiền xử lý ảnh từ stream dữ liệu cho model."""
-    if model is None or not TF_LOADED:
-        # Trả về tensor giả lập nếu model không khả dụng
-        return np.zeros((1, 224, 224, 3))
-        
+    if model is None:
+        # Trả về tensor giả lập nếu model không khả dụng (Chế độ MOCK)
+        # Sử dụng MockImage.img_to_array nếu nó được định nghĩa
+        try:
+            return np.zeros((1, 224, 224, 3))
+        except NameError:
+             return np.zeros((1, 224, 224, 3)) # Giả định np đã import
+
+    # Logic tiền xử lý cho model THẬT
     img = image.load_img(file_stream, target_size=(224, 224))
     x = image.img_to_array(img)
     x = x / 255.0
@@ -239,7 +242,7 @@ def emr_profile():
 
 @app.route("/emr_prediction", methods=["GET", "POST"])
 def emr_prediction():
-    """Route xử lý tải lên ảnh và dự đoán bằng model Keras. CHỈ DÙNG MODEL THẬT HOẶC MOCK."""
+    """Route xử lý tải lên ảnh và dự đoán bằng model Keras. Cố gắng dùng REAL MODEL."""
     if 'user' not in session:
         flash("Vui lòng đăng nhập trước khi truy cập.", "danger")
         return redirect(url_for("index"))
@@ -268,36 +271,36 @@ def emr_prediction():
             flash(f"Kết quả dự đoán cho '{filename}' được lấy từ **bộ nhớ đệm (Cache)**.", "info")
             
         else:
-            # --- 2. DỰ ĐOÁN MỚI (CHỈ SỬ DỤNG MODEL THẬT HOẶC MOCK) ---
+            # --- 2. DỰ ĐOÁN MỚI (CỐ GẮNG SỬ DỤNG MODEL THẬT) ---
             try:
                 img_bytes = file.read()
                 image_b64 = base64.b64encode(img_bytes).decode('utf-8')
                 
-                if model is None or not TF_LOADED:
-                    # Chế độ MOCK (Nếu load model thật thất bại)
-                    mock_prob = 0.85 + random.uniform(-0.05, 0.05) # Giá trị ngẫu nhiên gần 85%
+                if model is None: # model sẽ là None nếu load model thật thất bại
+                    # Chế độ MOCK
+                    mock_prob = 0.85 + random.uniform(-0.05, 0.05) 
                     result = random.choice(['Nodule', 'Non-nodule'])
                     
                     if result == 'Nodule':
                         prob = mock_prob
                     else:
-                        prob = 1.0 - mock_prob # Đảm bảo xác suất ngược lại cho Non-nodule
+                        prob = 1.0 - (mock_prob - 0.5) if mock_prob > 0.5 else 1.0 - mock_prob
                     
                     prediction = {'result': result, 'probability': prob}
-                    flash("Model AI chưa load. Dự đoán được **MÔ PHỎNG**. Vui lòng kiểm tra log lỗi load model.", "warning")
+                    flash("Model AI chưa load. Dự đoán được **MÔ PHỎNG**. Vui lòng kiểm tra log lỗi load model (thường là lỗi RAM).", "warning")
                         
                 else:
-                    # Chế độ DỰ ĐOÁN THẬT
+                    # Chế độ DỰ ĐOÁN THẬT (Chỉ chạy khi model != None)
                     file_stream_for_model = io.BytesIO(img_bytes)
                     x = preprocess_image(file_stream_for_model)
                     
-                    preds = model.predict(x, verbose=0)
-                    score = preds[0][0] # Giả định 1.0 là Nodule, 0.0 là Non-nodule
+                    # Lỗi 502 Bad Gateway có thể xảy ra ngay tại dòng này
+                    preds = model.predict(x, verbose=0) 
+                    score = preds[0][0]
                     
                     if score > 0.5:
                         prediction = {'result': 'Nodule', 'probability': float(score)}
                     else:
-                        # Nếu score < 0.5 (Non-nodule), độ tin cậy là (1 - score)
                         prediction = {'result': 'Non-nodule', 'probability': float(1.0 - score)}
                         
                     flash(f"Dự đoán bằng Model Keras **THẬT** thành công. Độ tin cậy: {prediction['probability']:.2%}.", "success")
@@ -310,8 +313,10 @@ def emr_prediction():
                 }
                 
             except Exception as e:
+                # Nếu crash xảy ra trong quá trình predict, lỗi này sẽ được ghi nhận trong logs của Render
                 print(f"LỖI THỜI GIAN CHẠY XỬ LÝ ẢNH/MODEL: {e}")
-                flash(f"Lỗi xử lý ảnh: {e}. Vui lòng kiểm tra file ảnh hoặc model.", "danger")
+                # Server có thể trả về 502 trước khi đoạn flash này kịp hiển thị
+                flash(f"Lỗi xử lý ảnh: {e}. Có thể do mô hình quá nặng hoặc lỗi trong quá trình dự đoán.", "danger")
                 return redirect(url_for("emr_prediction"))
                 
     return render_template('emr_prediction.html', prediction=prediction, filename=filename, image_b64=image_b64)
