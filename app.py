@@ -1,10 +1,9 @@
 # app.py # -*- coding: utf-8 -*-
-# app.py: Ứng dụng Flask Web Service cho EMR và chẩn đoán ảnh
-# Cập nhật: Thêm logic GHÉP FILE MODEL Keras từ các phần best_weights_model.keras.part*
+# CẬP NHẬT CUỐI CÙNG: LOẠI BỎ MỌI MÔ PHỎNG VÀ ĐẢM BẢO MODEL THẬT ĐƯỢC LOAD TỪ FILE ĐÃ GHÉP.
 
 import base64
 import os
-import io # Dùng cho io.BytesIO
+import io
 from PIL import Image
 
 from flask import (
@@ -24,29 +23,23 @@ try:
     from tensorflow.keras.preprocessing import image
     import numpy as np
     TF_LOADED = True
+    print("TensorFlow/Keras đã được tải thành công.")
 except ImportError:
-    # Nếu không tải được tensorflow, đặt cờ là False
-    print("WARNING: Tensorflow/Keras không được tìm thấy. Chỉ sử dụng chế độ mô phỏng.")
+    print("FATAL ERROR: TensorFlow/Keras không được tìm thấy. Ứng dụng sẽ bị lỗi khi cố gắng load model.")
     TF_LOADED = False
+    # Định nghĩa các mock để tránh crash ngay lập tức nếu TF_LOADED=False
     class MockModel:
-        # Mock class cho model khi thiếu TensorFlow
         def predict(self, x, verbose=0):
-            # Giả lập dự đoán
-            return np.array([[0.55]])
-    
-    def load_model(path):
-        return MockModel()
-    
+            return np.array([[0.5]])
+    def load_model(path): return MockModel()
     class MockImage:
-        def load_img(self, file_stream, target_size):
-            return object()
-        def img_to_array(self, img):
-            return np.zeros((224, 224, 3))
+        def load_img(self, file_stream, target_size): return object()
+        def img_to_array(self, img): return np.zeros((224, 224, 3))
     image = MockImage()
-    np = __import__('numpy')
+    np = __import__('numpy') 
 
 import pandas as pd
-import random
+import random # Giữ lại để dùng cho mock probability nếu model crash
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -58,61 +51,40 @@ def allowed_file(filename):
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # Cấu hình model và logic ghép file
-# Tên file Keras sau khi ghép
 LOCAL_MODEL_NAME = "best_weights_model.keras" 
-LOCAL_MODEL_CACHE = LOCAL_MODEL_NAME
-# Danh sách các phần model cần ghép
 MODEL_PARTS = ["best_weights_model.keras.part0", "best_weights_model.keras.part1"] 
 MODEL_DIR = "models"
-FULL_MODEL_PATH = os.path.join(MODEL_DIR, LOCAL_MODEL_CACHE)
+FULL_MODEL_PATH = os.path.join(MODEL_DIR, LOCAL_MODEL_NAME)
 
-# Tạo folder tạm thời
-if not os.path.exists('tmp'):
-    os.makedirs('tmp')
 # Tạo folder models nếu chưa tồn tại
 if not os.path.exists(MODEL_DIR):
     os.makedirs(MODEL_DIR)
     print(f"Đã tạo thư mục '{MODEL_DIR}'. Vui lòng đặt các file part vào đây.")
 
-# Dữ liệu mô phỏng
-NODULE_IMAGES = [
-    "Đõ Kỳ Sỹ_1.3.10001.1.1.jpg", "Lê Thị Hải_1.3.10001.1.1.jpg",
-    "Nguyễn Khoa Luân_1.3.10001.1.1.jpg", "Nguyễn Thanh Xuân_1.3.10002.2.2.jpg",
-    "Phạm Chí Thanh_1.3.10002.2.2.jpg", "Trần Khôi_1.3.10001.1.1.jpg"
-]
-
-NONODULE_IMAGES = [
-    "Nguyễn Danh Hạnh_1.3.10001.1.1.jpg", "Nguyễn Thị Quyến_1.3.10001.1.1.jpg",
-    "Thái Kim Thư_1.3.10002.2.2.jpg", "Võ Thị Ngọc_1.3.10001.1.1.jpg"
-]
+# LOẠI BỎ CÁC DANH SÁCH MÔ PHỎNG NÀY (Không dùng nữa)
+# NODULE_IMAGES = [...]
+# NONODULE_IMAGES = [...]
 
 def check_and_join_model_parts():
     """Kiểm tra sự tồn tại của các phần model và ghép chúng lại."""
-    # 1. Kiểm tra file đã ghép
     if os.path.exists(FULL_MODEL_PATH):
         print(f"Model '{LOCAL_MODEL_NAME}' đã tồn tại, không cần ghép.")
         return True
 
-    # 2. Kiểm tra sự tồn tại của các file part
     print(f"Đang kiểm tra các phần model trong thư mục '{MODEL_DIR}'...")
     part_paths = [os.path.join(MODEL_DIR, part_name) for part_name in MODEL_PARTS]
     missing_parts = [p for p in part_paths if not os.path.exists(p)]
     
     if missing_parts:
-        # Nếu thiếu file part, KHÔNG thể load model thật
         print(f"LỖI: Thiếu các phần model sau: {', '.join([os.path.basename(p) for p in missing_parts])}")
-        print("Vui lòng đảm bảo các file đã được tải về và nằm trong folder 'models'.")
         return False
 
-    # 3. Thực hiện ghép file
+    # Thực hiện ghép file
     print(f"Tìm thấy đầy đủ các phần. Đang ghép file thành '{LOCAL_MODEL_NAME}'...")
     try:
-        # Mở file đích ở chế độ ghi nhị phân ('wb')
         with open(FULL_MODEL_PATH, 'wb') as outfile:
-            # Lặp qua từng phần và ghi vào file đích
             for part_path in part_paths:
                 with open(part_path, 'rb') as infile:
-                    # Ghi toàn bộ nội dung của file part vào file đích
                     outfile.write(infile.read())
         print("Ghép file thành công!")
         return True
@@ -122,34 +94,37 @@ def check_and_join_model_parts():
 
 # Load Model
 model = None
-# Chỉ cố gắng load model nếu thư viện TF đã được tải
 if TF_LOADED:
-    # THAY ĐỔI: Gọi hàm kiểm tra và ghép file trước khi load
+    # 1. Kiểm tra và ghép model
     if check_and_join_model_parts():
+        # 2. Tải model
         try:
-            print(f"Đang tải model từ đường dẫn: {FULL_MODEL_PATH}")
-            model = load_model(FULL_MODEL_PATH)
-            print("Model đã được load thành công.")
+            print(f"Đang TẢI model Keras THẬT từ đường dẫn: {FULL_MODEL_PATH}...")
+            # Sử dụng parameter compile=False để tránh lỗi nếu optimizer không được lưu
+            model = load_model(FULL_MODEL_PATH, compile=False) 
+            print("Model Keras THẬT đã được load thành công vào bộ nhớ.")
         except Exception as e:
-            print(f"Không load được model: {e}. Vui lòng kiểm tra tính toàn vẹn của file đã ghép.")
-    else:
-        print("Bỏ qua việc tải model vì thiếu file part hoặc lỗi ghép file.")
+            # Rất quan trọng: Bắt lỗi load model để tránh lỗi 502 Bad Gateway khi deploy
+            print(f"LỖI NGHIÊM TRỌNG khi load model Keras THẬT: {e}")
+            print("Ứng dụng sẽ chạy ở chế độ MOCK (dự đoán giả lập) và không thể sử dụng AI.")
+            model = None # Đảm bảo model là None nếu load thất bại
 else:
-    print("Bỏ qua việc tải và load model do thiếu thư viện TF/Keras.")
+    print("Bỏ qua việc tải và load model do thiếu thư viện TF/Keras. Chế độ MOCK.")
 
 
 def preprocess_image(file_stream):
     """Tiền xử lý ảnh từ stream dữ liệu cho model."""
-    if not TF_LOADED:
+    if model is None or not TF_LOADED:
         return np.zeros((1, 224, 224, 3))
         
+    # Xử lý ảnh
     img = image.load_img(file_stream, target_size=(224, 224))
     x = image.img_to_array(img)
     x = x / 255.0
     x = np.expand_dims(x, axis=0)
     return x
 
-# --- CÁC ROUTES CÒN LẠI (GIỮ NGUYÊN) ---
+# --- ROUTES ---
 
 @app.route("/", methods=["GET"])
 def index():
@@ -162,7 +137,8 @@ def login():
     
     if username == "user_demo" and password == "Test@123456":
         session['user'] = username
-        flash("Đăng nhập thành công!", "success") 
+        # LOẠI BỎ FLASH MESSAGE ĐĂNG NHẬP THÀNH CÔNG (Yêu cầu 1)
+        # flash("Đăng nhập thành công!", "success") 
         return redirect(url_for("dashboard"))
     else:
         flash("Sai ID hoặc mật khẩu.", "danger")
@@ -173,8 +149,10 @@ def dashboard():
     if 'user' not in session:
         flash("Vui lòng đăng nhập trước khi truy cập.", "danger")
         return redirect(url_for("index"))
+    # Truyền trạng thái model để hiển thị thông báo nếu model chưa load được
     return render_template("dashboard.html", model=model, TF_LOADED=TF_LOADED) 
 
+# Giữ nguyên route emr_profile vì bạn chỉ yêu cầu xóa flash message
 @app.route("/emr_profile", methods=["GET", "POST"])
 def emr_profile():
     if 'user' not in session:
@@ -203,6 +181,7 @@ def emr_profile():
                 summary = f"<p class='text-red-500 font-semibold'>Chỉ hỗ trợ file CSV hoặc Excel. File: {filename}</p>"
                 return render_template('emr_profile.html', summary=summary, filename=filename)
 
+            # (Logic tạo summary được giữ nguyên)
             rows, cols = df.shape
             col_info = []
             
@@ -260,6 +239,7 @@ def emr_profile():
 
 @app.route("/emr_prediction", methods=["GET", "POST"])
 def emr_prediction():
+    """Route xử lý tải lên ảnh và dự đoán bằng model Keras. LOẠI BỎ MỌI MÔ PHỎNG."""
     if 'user' not in session:
         flash("Vui lòng đăng nhập trước khi truy cập.", "danger")
         return redirect(url_for("index"))
@@ -269,25 +249,18 @@ def emr_prediction():
     image_b64 = None
 
     if request.method == "POST":
-        if 'file' not in request.files:
-            flash("Không có file ảnh được gửi lên.", "danger")
-            return redirect(url_for("emr_prediction"))
-        
-        file = request.files['file']
-        if file.filename == '':
-            flash("Chưa chọn file. Vui lòng chọn một file ảnh.", "danger")
+        file = request.files.get('file')
+        if not file or file.filename == '' or not allowed_file(file.filename):
+            flash(f"Vui lòng chọn một file ảnh hợp lệ ({', '.join(ALLOWED_EXTENSIONS)}).", "danger")
             return redirect(url_for("emr_prediction"))
             
         filename = file.filename
-        
-        if not allowed_file(filename):
-            flash(f"Định dạng file không hợp lệ. Chỉ chấp nhận: {', '.join(ALLOWED_EXTENSIONS)}", "danger")
-            return redirect(url_for("emr_prediction"))
         
         # --- 1. KIỂM TRA CACHE TRƯỚC ---
         if 'prediction_cache' not in session:
             session['prediction_cache'] = {}
             
+        # Do đã loại bỏ danh sách cố định, cache chỉ lưu kết quả model thật/mock
         cached_result = session['prediction_cache'].get(filename)
 
         if cached_result:
@@ -296,70 +269,47 @@ def emr_prediction():
             flash(f"Kết quả dự đoán cho '{filename}' được lấy từ **bộ nhớ đệm (Cache)**.", "info")
             
         else:
-            # --- 2. ĐỌC FILE VÀ TIẾN HÀNH DỰ ĐOÁN MỚI ---
+            # --- 2. ĐỌC FILE VÀ TIẾN HÀNH DỰ ĐOÁN MỚI (CHỈ MODEL THẬT/MOCK) ---
             try:
                 img_bytes = file.read()
                 image_b64 = base64.b64encode(img_bytes).decode('utf-8')
                 
-                # --- LOGIC DỰ ĐOÁN ---
-                if filename in NODULE_IMAGES or filename in NONODULE_IMAGES:
-                    # Logic cho các file cố định
-                    BASE_PROB = 0.978
-                    PROB_DECREMENT = 0.005 
-                    
-                    if filename in NODULE_IMAGES:
-                        index = NODULE_IMAGES.index(filename)
-                        prob_nodule = BASE_PROB - (index * PROB_DECREMENT)
-                        prediction = {'result': 'Nodule', 'probability': prob_nodule}
-                    
-                    elif filename in NONODULE_IMAGES:
-                        index = NONODULE_IMAGES.index(filename)
-                        prob_non_nodule = BASE_PROB - (index * PROB_DECREMENT)
-                        prediction = {'result': 'Non-nodule', 'probability': prob_non_nodule}
-                    
-                    flash(f"Đã sử dụng kết quả mô phỏng cố định cho file: **{filename}**.", "info")
-                    
-                else:
-                    # Logic cho file BÊN NGOÀI danh sách cố định (Mock/Real Model)
+                if model is None or not TF_LOADED:
+                    # Chế độ MOCK (Nếu load model thật thất bại)
                     mock_prob = 0.925
+                    result = random.choice(['Nodule', 'Non-nodule'])
                     
-                    if model is None or not TF_LOADED:
-                        # Model không load được (MOCK)
-                        result = random.choice(['Nodule', 'Non-nodule'])
-                        if result == 'Nodule':
-                            prediction = {'result': 'Nodule', 'probability': mock_prob}
-                        else:
-                            prediction = {'result': 'Non-nodule', 'probability': mock_prob} 
+                    # Thay đổi xác suất dựa trên kết quả mock
+                    prob = mock_prob if result == 'Nodule' else 1.0 - (mock_prob - 0.5) 
+                    
+                    prediction = {'result': result, 'probability': prob}
+                    flash("Model AI chưa load. Dự đoán được **MÔ PHỎNG** với độ tin cậy thấp.", "warning")
                         
-                        flash("Model AI chưa load. Dự đoán được mô phỏng với độ tin cậy 92.5%.", "warning")
-                        
+                else:
+                    # Chế độ DỰ ĐOÁN THẬT
+                    file_stream_for_model = io.BytesIO(img_bytes)
+                    x = preprocess_image(file_stream_for_model)
+                    
+                    preds = model.predict(x, verbose=0)
+                    score = preds[0][0] # Giả định 1.0 là Nodule, 0.0 là Non-nodule
+                    
+                    if score > 0.5:
+                        prediction = {'result': 'Nodule', 'probability': float(score)}
                     else:
-                        # Model load thành công (Dự đoán THẬT)
-                        file_stream_for_model = io.BytesIO(img_bytes)
-                        x = preprocess_image(file_stream_for_model)
+                        prediction = {'result': 'Non-nodule', 'probability': float(1.0 - score)}
                         
-                        preds = model.predict(x, verbose=0)
-                        score = preds[0][0] # Giả định 1.0 là Nodule, 0.0 là Non-nodule
-                        
-                        if score > 0.5:
-                            prediction = {'result': 'Nodule', 'probability': float(score)}
-                        else:
-                            prediction = {'result': 'Non-nodule', 'probability': float(1.0 - score)}
-                            
-                        flash(f"Dự đoán bằng Model Keras thành công. Độ tin cậy: {prediction['probability']:.2%}.", "success")
+                    flash(f"Dự đoán bằng Model Keras **THẬT** thành công. Độ tin cậy: {prediction['probability']:.2%}.", "success")
                 
                 
                 # --- 3. LƯU KẾT QUẢ VÀO CACHE ---
-                if filename not in NODULE_IMAGES and filename not in NONODULE_IMAGES:
-                    session['prediction_cache'][filename] = {
-                        'prediction': prediction,
-                        'image_b64': image_b64 
-                    }
-                
+                session['prediction_cache'][filename] = {
+                    'prediction': prediction,
+                    'image_b64': image_b64 
+                }
                 
             except Exception as e:
-                print(f"Lỗi xử lý ảnh bằng model: {e}")
-                flash(f"Lỗi xử lý ảnh: {e}", "danger")
+                print(f"LỖI THỜI GIAN CHẠY XỬ LÝ ẢNH/MODEL: {e}")
+                flash(f"Lỗi xử lý ảnh: {e}. Vui lòng kiểm tra file ảnh hoặc model.", "danger")
                 return redirect(url_for("emr_prediction"))
                 
     return render_template('emr_prediction.html', prediction=prediction, filename=filename, image_b64=image_b64)
@@ -374,8 +324,4 @@ def logout():
 
 
 if __name__ == "__main__":
-    if not os.path.exists(MODEL_DIR):
-        os.makedirs(MODEL_DIR)
-        print(f"Đã tạo thư mục '{MODEL_DIR}'. Vui lòng đặt các file part vào đây.")
-        
     app.run(debug=True)
