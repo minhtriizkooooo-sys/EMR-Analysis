@@ -1,10 +1,15 @@
 # app.py # -*- coding: utf-8 -*-
-# CẬP NHẬT CUỐI CÙNG: LOẠI BỎ MỌI MÔ PHỎNG VÀ ĐẢM BẢO MODEL THẬT ĐƯỢC LOAD TỪ FILE ĐÃ GHÉP.
+# CẬP NHẬT: Xử lý ghép file model, loại bỏ mô phỏng cố định, và khắc phục lỗi Load Model Keras.
 
 import base64
 import os
 import io
 from PIL import Image
+
+# ******* CẤU HÌNH KERAS BACKEND CHO KHẢ NĂNG TƯƠNG THÍCH CAO HƠN *******
+# Rất quan trọng để khắc phục lỗi deserialize (lỗi 502) trên các môi trường mới
+os.environ["KERAS_BACKEND"] = "tensorflow"
+# **********************************************************************
 
 from flask import (
     Flask,
@@ -25,21 +30,24 @@ try:
     TF_LOADED = True
     print("TensorFlow/Keras đã được tải thành công.")
 except ImportError:
-    print("FATAL ERROR: TensorFlow/Keras không được tìm thấy. Ứng dụng sẽ bị lỗi khi cố gắng load model.")
+    print("FATAL ERROR: TensorFlow/Keras không được tìm thấy. Ứng dụng sẽ chạy ở chế độ MOCK.")
     TF_LOADED = False
-    # Định nghĩa các mock để tránh crash ngay lập tức nếu TF_LOADED=False
+    
+    # Mock classes để tránh crash khi thiếu thư viện
     class MockModel:
         def predict(self, x, verbose=0):
-            return np.array([[0.5]])
+            # Giả lập xác suất Nodule
+            return np.array([[0.55 + random.uniform(-0.05, 0.05)]])
     def load_model(path): return MockModel()
     class MockImage:
         def load_img(self, file_stream, target_size): return object()
         def img_to_array(self, img): return np.zeros((224, 224, 3))
     image = MockImage()
     np = __import__('numpy') 
+    random = __import__('random') 
 
 import pandas as pd
-import random # Giữ lại để dùng cho mock probability nếu model crash
+# random chỉ dùng cho mock probability nếu model load thất bại
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -60,10 +68,6 @@ FULL_MODEL_PATH = os.path.join(MODEL_DIR, LOCAL_MODEL_NAME)
 if not os.path.exists(MODEL_DIR):
     os.makedirs(MODEL_DIR)
     print(f"Đã tạo thư mục '{MODEL_DIR}'. Vui lòng đặt các file part vào đây.")
-
-# LOẠI BỎ CÁC DANH SÁCH MÔ PHỎNG NÀY (Không dùng nữa)
-# NODULE_IMAGES = [...]
-# NONODULE_IMAGES = [...]
 
 def check_and_join_model_parts():
     """Kiểm tra sự tồn tại của các phần model và ghép chúng lại."""
@@ -95,19 +99,17 @@ def check_and_join_model_parts():
 # Load Model
 model = None
 if TF_LOADED:
-    # 1. Kiểm tra và ghép model
     if check_and_join_model_parts():
-        # 2. Tải model
         try:
             print(f"Đang TẢI model Keras THẬT từ đường dẫn: {FULL_MODEL_PATH}...")
-            # Sử dụng parameter compile=False để tránh lỗi nếu optimizer không được lưu
+            # Sử dụng compile=False để tránh lỗi khi optimizer không tương thích (phòng ngừa lỗi 502)
             model = load_model(FULL_MODEL_PATH, compile=False) 
             print("Model Keras THẬT đã được load thành công vào bộ nhớ.")
         except Exception as e:
-            # Rất quan trọng: Bắt lỗi load model để tránh lỗi 502 Bad Gateway khi deploy
+            # Bắt lỗi load model để tránh crash ứng dụng ngay khi khởi động
             print(f"LỖI NGHIÊM TRỌNG khi load model Keras THẬT: {e}")
-            print("Ứng dụng sẽ chạy ở chế độ MOCK (dự đoán giả lập) và không thể sử dụng AI.")
-            model = None # Đảm bảo model là None nếu load thất bại
+            print("Ứng dụng sẽ chạy ở chế độ MOCK (dự đoán giả lập).")
+            model = None 
 else:
     print("Bỏ qua việc tải và load model do thiếu thư viện TF/Keras. Chế độ MOCK.")
 
@@ -115,9 +117,9 @@ else:
 def preprocess_image(file_stream):
     """Tiền xử lý ảnh từ stream dữ liệu cho model."""
     if model is None or not TF_LOADED:
+        # Trả về tensor giả lập nếu model không khả dụng
         return np.zeros((1, 224, 224, 3))
         
-    # Xử lý ảnh
     img = image.load_img(file_stream, target_size=(224, 224))
     x = image.img_to_array(img)
     x = x / 255.0
@@ -138,7 +140,6 @@ def login():
     if username == "user_demo" and password == "Test@123456":
         session['user'] = username
         # LOẠI BỎ FLASH MESSAGE ĐĂNG NHẬP THÀNH CÔNG (Yêu cầu 1)
-        # flash("Đăng nhập thành công!", "success") 
         return redirect(url_for("dashboard"))
     else:
         flash("Sai ID hoặc mật khẩu.", "danger")
@@ -149,10 +150,8 @@ def dashboard():
     if 'user' not in session:
         flash("Vui lòng đăng nhập trước khi truy cập.", "danger")
         return redirect(url_for("index"))
-    # Truyền trạng thái model để hiển thị thông báo nếu model chưa load được
     return render_template("dashboard.html", model=model, TF_LOADED=TF_LOADED) 
 
-# Giữ nguyên route emr_profile vì bạn chỉ yêu cầu xóa flash message
 @app.route("/emr_profile", methods=["GET", "POST"])
 def emr_profile():
     if 'user' not in session:
@@ -181,10 +180,10 @@ def emr_profile():
                 summary = f"<p class='text-red-500 font-semibold'>Chỉ hỗ trợ file CSV hoặc Excel. File: {filename}</p>"
                 return render_template('emr_profile.html', summary=summary, filename=filename)
 
-            # (Logic tạo summary được giữ nguyên)
             rows, cols = df.shape
             col_info = []
             
+            # (Logic tạo summary được giữ nguyên)
             for col in df.columns:
                 dtype = str(df[col].dtype)
                 missing = df[col].isnull().sum()
@@ -239,7 +238,7 @@ def emr_profile():
 
 @app.route("/emr_prediction", methods=["GET", "POST"])
 def emr_prediction():
-    """Route xử lý tải lên ảnh và dự đoán bằng model Keras. LOẠI BỎ MỌI MÔ PHỎNG."""
+    """Route xử lý tải lên ảnh và dự đoán bằng model Keras. CHỈ DÙNG MODEL THẬT HOẶC MOCK."""
     if 'user' not in session:
         flash("Vui lòng đăng nhập trước khi truy cập.", "danger")
         return redirect(url_for("index"))
@@ -260,7 +259,6 @@ def emr_prediction():
         if 'prediction_cache' not in session:
             session['prediction_cache'] = {}
             
-        # Do đã loại bỏ danh sách cố định, cache chỉ lưu kết quả model thật/mock
         cached_result = session['prediction_cache'].get(filename)
 
         if cached_result:
@@ -269,21 +267,23 @@ def emr_prediction():
             flash(f"Kết quả dự đoán cho '{filename}' được lấy từ **bộ nhớ đệm (Cache)**.", "info")
             
         else:
-            # --- 2. ĐỌC FILE VÀ TIẾN HÀNH DỰ ĐOÁN MỚI (CHỈ MODEL THẬT/MOCK) ---
+            # --- 2. DỰ ĐOÁN MỚI (CHỈ SỬ DỤNG MODEL THẬT HOẶC MOCK) ---
             try:
                 img_bytes = file.read()
                 image_b64 = base64.b64encode(img_bytes).decode('utf-8')
                 
                 if model is None or not TF_LOADED:
                     # Chế độ MOCK (Nếu load model thật thất bại)
-                    mock_prob = 0.925
+                    mock_prob = 0.85 + random.uniform(-0.05, 0.05) # Giá trị ngẫu nhiên gần 85%
                     result = random.choice(['Nodule', 'Non-nodule'])
                     
-                    # Thay đổi xác suất dựa trên kết quả mock
-                    prob = mock_prob if result == 'Nodule' else 1.0 - (mock_prob - 0.5) 
+                    if result == 'Nodule':
+                        prob = mock_prob
+                    else:
+                        prob = 1.0 - mock_prob # Đảm bảo xác suất ngược lại cho Non-nodule
                     
                     prediction = {'result': result, 'probability': prob}
-                    flash("Model AI chưa load. Dự đoán được **MÔ PHỎNG** với độ tin cậy thấp.", "warning")
+                    flash("Model AI chưa load. Dự đoán được **MÔ PHỎNG**. Vui lòng kiểm tra log lỗi load model.", "warning")
                         
                 else:
                     # Chế độ DỰ ĐOÁN THẬT
@@ -296,6 +296,7 @@ def emr_prediction():
                     if score > 0.5:
                         prediction = {'result': 'Nodule', 'probability': float(score)}
                     else:
+                        # Nếu score < 0.5 (Non-nodule), độ tin cậy là (1 - score)
                         prediction = {'result': 'Non-nodule', 'probability': float(1.0 - score)}
                         
                     flash(f"Dự đoán bằng Model Keras **THẬT** thành công. Độ tin cậy: {prediction['probability']:.2%}.", "success")
