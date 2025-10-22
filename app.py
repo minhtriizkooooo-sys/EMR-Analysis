@@ -113,7 +113,7 @@ def login():
 
     # Giả lập xác thực: user_demo / Test@123456
     if userID == "user_demo" and password == "Test@123456":
-        session['user'] = username
+        session['user'] = userID
         flash("Đăng nhập thành công! Chào mừng đến với Dashboard.", "success")
         # Điều hướng đến dashboard
         return redirect(url_for("dashboard"))
@@ -230,6 +230,17 @@ def emr_prediction():
             flash("Định dạng file không hợp lệ. Chỉ chấp nhận JPG, PNG, GIF, BMP.", "danger")
 
     return render_template("emr_prediction.html", prediction=prediction, filename=filename, image_b64=image_b64, model_ready=(model is not None))
+
+# --- XỬ LÝ LỖI CHUNG ---
+@app.errorhandler(500)
+def internal_error(error):
+    """Xử lý lỗi 500 Internal Server Error không được bắt (unhandled exceptions)."""
+    # Ghi log lỗi để dễ dàng gỡ lỗi
+    app.logger.error('Server Error (500): %s', error)
+    # Hiển thị thông báo thân thiện cho người dùng
+    flash("Hệ thống gặp lỗi nội bộ (500). Vui lòng kiểm tra log máy chủ hoặc thử lại sau.", "danger")
+    # Điều hướng về trang đăng nhập an toàn
+    return redirect(url_for('index'))
 
 if __name__ == "__main__":
     app.run(debug=True)
