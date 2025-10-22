@@ -9,6 +9,7 @@ from werkzeug.utils import secure_filename
 from tensorflow.keras.models import load_model, Sequential
 from tensorflow.keras.layers import Input, Flatten, Dense # Cần cho Dummy Model
 from tensorflow.keras.preprocessing.image import img_to_array
+import glob # Đảm bảo import glob ở đây
 
 # --- CẤU HÌNH ---
 app = Flask(__name__)
@@ -53,8 +54,6 @@ def join_model_parts():
         print(f"❌ Lỗi khi ghép model: {e}")
         return False
 
-# Cần glob ở đây
-import glob
 join_model_parts() 
 
 model = None
@@ -114,10 +113,12 @@ def index():
 
 @app.route("/login", methods=["POST"])
 def login():
-    username = request.form.get("username")
-    password = request.form.get("password")
+    # FIX: Thêm .strip() để loại bỏ khoảng trắng thừa, khắc phục lỗi đăng nhập
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "").strip()
 
     # Giả lập xác thực (BẠN NÊN THAY THẾ BẰNG FIREBASE HOẶC DB THẬT)
+    # LƯU Ý: Mật khẩu này là case-sensitive: "Test@123456"
     if username == "user_demo" and password == "Test@123456":
         session['user'] = username
         flash("Đăng nhập thành công!", "success")
@@ -228,4 +229,3 @@ def emr_prediction():
 
 if __name__ == "__main__":
     app.run(debug=True)
-
