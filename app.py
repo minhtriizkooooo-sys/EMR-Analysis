@@ -6,10 +6,11 @@ import numpy as np
 from PIL import Image
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from werkzeug.utils import secure_filename
-from tensorflow.keras.models import load_model, Sequential
-from tensorflow.keras.layers import Input, Flatten, Dense # Cần cho Dummy Model
+# Đảm bảo các imports này được sử dụng (ngay cả khi là dummy model)
+from tensorflow.keras.models import load_model, Sequential 
+from tensorflow.keras.layers import Input, Flatten, Dense 
 from tensorflow.keras.preprocessing.image import img_to_array
-import glob # Đảm bảo import glob ở đây
+import glob 
 
 # --- CẤU HÌNH ---
 app = Flask(__name__)
@@ -104,7 +105,7 @@ def preprocess_image(image_file, target_size=(224, 224)):
     # TRẢ VỀ: Array sẵn sàng để predict
     return img_array
 
-# --- CÁC ROUTES KHÁC (GIỮ NGUYÊN) ---
+# --- CÁC ROUTES KHÁC ---
 
 @app.route("/")
 @app.route("/index")
@@ -113,8 +114,8 @@ def index():
 
 @app.route("/login", methods=["POST"])
 def login():
-    # FIX: Thêm .strip() để loại bỏ khoảng trắng thừa, khắc phục lỗi đăng nhập
-    username = request.form.get("username", "").strip()
+    # FIX LỖI: Đã đổi "username" thành "userID" để khớp với name attribute trong index.html
+    username = request.form.get("userID", "").strip() 
     password = request.form.get("password", "").strip()
 
     # Giả lập xác thực (BẠN NÊN THAY THẾ BẰNG FIREBASE HOẶC DB THẬT)
