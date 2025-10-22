@@ -118,7 +118,7 @@ def login():
     password = request.form.get("password")
 
     # Giả lập xác thực (BẠN NÊN THAY THẾ BẰNG FIREBASE HOẶC DB THẬT)
-    if username == "user_demo" and password == "123456":
+    if username == "user_demo" and password == "Test@123456":
         session['user'] = username
         flash("Đăng nhập thành công!", "success")
         return redirect(url_for("dashboard"))
@@ -228,3 +228,4 @@ def emr_prediction():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
