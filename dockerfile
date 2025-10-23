@@ -1,17 +1,16 @@
-FROM python:3.11-slim
+FROM python:3.11
 
-# Set thư mục làm việc
 WORKDIR /app
 
-# Sao chép file requirements.txt và cài đặt dependencies
+# Install system dependencies for tensorflow-cpu and other libraries
+RUN apt-get update && apt-get install -y \
+    libblas-dev \
+    liblapack-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Sao chép toàn bộ mã nguồn vào container
 COPY . .
 
-# Expose cổng 5000
-EXPOSE 5000
-
-# Command để chạy app
-CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:5000"]
+CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:$PORT"]
