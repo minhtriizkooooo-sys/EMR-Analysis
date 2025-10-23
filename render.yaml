@@ -1,9 +1,7 @@
-# render.yaml (Suggested Change)
 services:
   - type: web
     name: emr-analysis
     env: python
-    # Change this line:
     pythonVersion: 3.11.8
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    startCommand: gunicorn --bind 0.0.0.0:$PORT app:app
