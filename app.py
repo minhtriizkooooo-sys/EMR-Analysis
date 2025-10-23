@@ -115,7 +115,7 @@ def login():
     password = request.form.get("password")
     if username == "user_demo" and password == "Test@123456":
         session['user'] = username
-        flash("Đăng nhập thành công!", "success")
+        #flash("Đăng nhập thành công!", "success")
         return redirect(url_for("dashboard"))
     else:
         flash("Sai ID hoặc mật khẩu.", "danger")
@@ -296,10 +296,11 @@ def emr_prediction():
 def logout():
     session.pop('user', None)
     session.pop('prediction_cache', None)
-    flash("Đã đăng xuất.", "success")
+    #flash("Đã đăng xuất.", "success")
     return redirect(url_for("index"))
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     app.run(host="0.0.0.0", port=port, debug=True)
+
 
