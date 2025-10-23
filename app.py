@@ -259,7 +259,7 @@ def emr_prediction():
                     index = NONODULE_IMAGES.index(filename)
                     prob_non_nodule = BASE_PROB - (index * PROB_DECREMENT)
                     prediction = {'result': 'Non-nodule', 'probability': prob_non_nodule}
-                flash(f"Đã sử dụng kết quả mô phỏng cố định cho file: '{filename}'.", "info")
+                #flash(f"Đã sử dụng kết quả mô phỏng cố định cho file: '{filename}'.", "info")
             else:
                 # Non-fixed image logic
                 try:
@@ -302,3 +302,4 @@ def logout():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     app.run(host="0.0.0.0", port=port, debug=True)
+
