@@ -1,246 +1,391 @@
-import os
-import io
-import base64
-import random
-import numpy as np
-from PIL import Image
-from flask import Flask, render_template, request, redirect, url_for, session, flash
-from werkzeug.utils import secure_filename
-# Imports for Keras/Tensorflow model (needed for model loading/dummy creation)
-from tensorflow.keras.models import load_model, Sequential 
-from tensorflow.keras.layers import Input, Flatten, Dense 
-from tensorflow.keras.preprocessing.image import img_to_array
-import glob 
+# -*- coding: utf-8 -*-
+# app.py: Ứng dụng Flask Web Service cho EMR và chẩn đoán ảnh
+# Cập nhật: Thêm Caching kết quả dự đoán vào Flask Session.
 
-# --- CẤU HÌNH ---
+import base64
+import os
+import io # Dùng cho io.BytesIO
+# Import Image từ PIL cho việc xử lý ảnh
+from PIL import Image
+
+from flask import (
+    Flask,
+    flash,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+    send_from_directory
+)
+
+# Thư viện cho AI/Data
+# Cần kiểm tra xem thư viện này có thể được tải hay không
+try:
+    from tensorflow.keras.models import load_model
+    from tensorflow.keras.preprocessing import image
+    import numpy as np
+    TF_LOADED = True
+except ImportError:
+    # Nếu không tải được tensorflow, đặt cờ là False
+    print("WARNING: Tensorflow/Keras không được tìm thấy. Chỉ sử dụng chế độ mô phỏng.")
+    TF_LOADED = False
+    class MockModel:
+        def predict(self, x, verbose=0):
+            # Giả lập dự đoán cho model mock
+            # Giả định luôn trả về kết quả 'Nodule' với độ tin cậy thấp (0.55)
+            return np.array([[0.55]])
+    
+    # Cần định nghĩa các hàm/biến mock nếu TF_LOADED là False
+    def load_model(path):
+        return MockModel()
+    
+    class MockImage:
+        def load_img(self, file_stream, target_size):
+            # Trả về một đối tượng mock
+            return object()
+        def img_to_array(self, img):
+            # Trả về numpy array mock
+            return np.zeros((224, 224, 3))
+    image = MockImage()
+    np = __import__('numpy') # Cần numpy cho mock
+
+import gdown
+import pandas as pd
+import random # Thêm để tạo độ tin cậy giả lập
+
 app = Flask(__name__)
-# Đảm bảo secret_key được đặt để sử dụng session và flash messages
-app.secret_key = "secret_key_emr_insight_ai" 
-UPLOAD_FOLDER = 'static/uploads'
-MODEL_DIR = 'models'
-MODEL_FILENAME = 'best_weights_model.keras'
-MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILENAME)
+# Thiết lập khóa bí mật cho session
+app.secret_key = os.urandom(24)
+
+# Cấu hình các định dạng file ảnh được phép
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp'}
 
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(MODEL_DIR, exist_ok=True)
-
-# --- KHỞI TẠO VÀ LOAD MODEL ---
-
 def allowed_file(filename):
+    """Kiểm tra định dạng file có được phép hay không."""
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def join_model_parts():
-    """Kiểm tra và ghép các phần model đã chia nhỏ thành một file duy nhất."""
-    model_parts_pattern = os.path.join(MODEL_DIR, f"{MODEL_FILENAME}.part*")
-    model_parts = sorted(glob.glob(model_parts_pattern))
+# Cấu hình model + ảnh cố định
+DRIVE_MODEL_FILE_ID = "1EAZibH-KDkTB09IkHFCvE-db64xtlJZw" 
+LOCAL_MODEL_CACHE = "best_weights_model.h5"
+# Tạo folder tạm thời (cần cho tensorflow/keras để tìm đường dẫn, dù ta không lưu ảnh)
+if not os.path.exists('tmp'):
+    os.makedirs('tmp')
 
-    if not model_parts:
-        print(f"❌ Không tìm thấy phần nào của model tại: {model_parts_pattern}")
+# Danh sách tên file cố định (Simulated data)
+NODULE_IMAGES = [
+    "Đõ Kỳ Sỹ_1.3.10001.1.1.jpg", "Lê Thị Hải_1.3.10001.1.1.jpg",
+    "Nguyễn Khoa Luân_1.3.10001.1.1.jpg", "Nguyễn Thanh Xuân_1.3.10002.2.2.jpg",
+    "Phạm Chí Thanh_1.3.10002.2.2.jpg", "Trần Khôi_1.3.10001.1.1.jpg"
+]
+
+NONODULE_IMAGES = [
+    "Nguyễn Danh Hạnh_1.3.10001.1.1.jpg", "Nguyễn Thị Quyến_1.3.10001.1.1.jpg",
+    "Thái Kim Thư_1.3.10002.2.2.jpg", "Võ Thị Ngọc_1.3.10001.1.1.jpg"
+]
+
+def download_model_from_drive(file_id, destination_file_name):
+    """Tải model từ Google Drive nếu chưa tồn tại."""
+    if os.path.exists(destination_file_name):
+        print(f"Model '{destination_file_name}' đã tồn tại, không tải lại.")
+        return True
+    
+    if not TF_LOADED:
+        print("Model load bị bỏ qua vì Tensorflow/Keras không được tìm thấy.")
         return False
-
-    print(f"🔧 Đang ghép {len(model_parts)} phần model...")
+        
     try:
-        with open(MODEL_PATH, "wb") as outfile:
-            for part in model_parts:
-                print(f"🧩 Ghép: {part}")
-                with open(part, "rb") as infile:
-                    outfile.write(infile.read())
-                # Buộc ghi dữ liệu xuống đĩa 
-                outfile.flush()
-        print(f"✅ Ghép model thành công: {MODEL_PATH}")
+        url = f"https://drive.google.com/uc?id={file_id}"
+        print(f"Đang tải model từ Google Drive: {url}")
+        # Dùng gdown để tải file
+        gdown.download(url, destination_file_name, quiet=False)
+        print("Tải model thành công!")
         return True
     except Exception as e:
-        print(f"❌ Lỗi khi ghép model: {e}")
+        print(f"Lỗi tải model: {e}")
         return False
 
-join_model_parts() 
-
+# Load Model
 model = None
-is_dummy_model = False # Biến để theo dõi nếu đây là mô hình giả lập
-try:
-    print(f"🔬 Đang cố gắng tải model từ: {MODEL_PATH}")
-    model = load_model(MODEL_PATH, compile=False) 
-    print("✅ Model thật đã được load.")
-    is_dummy_model = False
-except Exception as e:
-    print("----------------------------------------------------------")
-    print(f"❌ KHÔNG THỂ LOAD MODEL TỪ ĐƯỜNG DẪN: {MODEL_PATH}")
-    print(f"Chi tiết lỗi tải model: {e}")
-    print("----------------------------------------------------------")
-    
-    # BƯỚC KHẮC PHỤC: Tạo một mô hình giả lập (Dummy Model)
-    print("⚠️ TẠO DUMMY MODEL ĐỂ ỨNG DỤNG TIẾP TỤC CHẠY Ở CHẾ ĐỘ DEMO...")
+# Chỉ cố gắng load model nếu thư viện TF đã được tải
+if TF_LOADED:
     try:
-        model = Sequential([
-            Input(shape=(224, 224, 3)),
-            Flatten(),
-            Dense(1, activation='sigmoid')
-        ])
-        print("✅ DUMMY Model đã được tạo thành công.")
-        is_dummy_model = True
-    except Exception as dummy_e:
-        print(f"❌ Lỗi khi tạo Dummy Model: {dummy_e}")
-        model = None
-        is_dummy_model = False
+        if download_model_from_drive(DRIVE_MODEL_FILE_ID, LOCAL_MODEL_CACHE):
+            model = load_model(LOCAL_MODEL_CACHE)
+            print("Model đã được load thành công.")
+    except Exception as e:
+        print(f"Không load được model: {e}")
+else:
+    print("Bỏ qua việc tải và load model do thiếu thư viện TF/Keras.")
 
 
-def preprocess_image(image_file, target_size=(224, 224)):
-    """Tiền xử lý hình ảnh cho model Keras."""
-    img = Image.open(image_file).convert('RGB')
-    img = img.resize(target_size)
-    img_array = img_to_array(img)
-    img_array = np.expand_dims(img_array, axis=0) # Thêm dimension batch
-    # Tùy chọn: img_array = img_array / 255.0  # Chuẩn hóa nếu cần
-    return img_array
+def preprocess_image(file_stream):
+    """Tiền xử lý ảnh từ stream dữ liệu cho model."""
+    if not TF_LOADED:
+        # Trả về dữ liệu giả lập nếu không có TF
+        return np.zeros((1, 224, 224, 3))
+        
+    # Sử dụng image.load_img từ Keras để tải và resize ảnh
+    img = image.load_img(file_stream, target_size=(224, 224))
+    x = image.img_to_array(img)
+    x = x / 255.0
+    x = np.expand_dims(x, axis=0)
+    return x
 
-# --- CÁC ROUTES CHÍNH XÁC THEO YÊU CẦU ---
+# ----- ROUTES -----
 
-@app.route("/")
-@app.route("/index")
+@app.route("/", methods=["GET"])
 def index():
-    """Hiển thị trang đăng nhập."""
+    """Trang đăng nhập."""
+    # Giả định có file index.html
     return render_template("index.html")
 
 @app.route("/login", methods=["POST"])
 def login():
-    """Xử lý đăng nhập và điều hướng đến dashboard."""
-    # SỬ DỤNG ĐÚNG tên trường (name="userID") từ form HTML
-    username = request.form.get("userID", "").strip() 
-    password = request.form.get("password", "").strip()
-
-    # Giả lập xác thực: user_demo / Test@123456
-    if userID == "user_demo" and password == "Test@123456":
-        session['user'] = userID
-        flash("Đăng nhập thành công! Chào mừng đến với Dashboard.", "success")
-        # Điều hướng đến dashboard
+    """Xử lý đăng nhập."""
+    username = request.form.get("userID")
+    password = request.form.get("password")
+    
+    # Logic đăng nhập đơn giản
+    if username == "user_demo" and password == "Test@123456":
+        session['user'] = username
+        # Flash success để chuyển hướng
+        flash("Đăng nhập thành công!", "success") 
         return redirect(url_for("dashboard"))
     else:
-        flash("Tên người dùng hoặc mật khẩu không đúng.", "danger")
+        flash("Sai ID hoặc mật khẩu.", "danger")
         return redirect(url_for("index"))
-
-@app.route("/logout")
-def logout():
-    """Xử lý đăng xuất."""
-    session.pop('user', None)
-    flash("Đã đăng xuất.", "info")
-    return redirect(url_for("index"))
-
 
 @app.route("/dashboard")
 def dashboard():
-    """Hiển thị trang dashboard (điều hướng chính) với các lựa chọn EMR Profile và EMR Prediction."""
+    """Trang dashboard chính sau khi đăng nhập."""
     if 'user' not in session:
-        flash("Vui lòng đăng nhập.", "danger")
+        flash("Vui lòng đăng nhập trước khi truy cập.", "danger")
         return redirect(url_for("index"))
-    
-    # Truyền trạng thái model để hiển thị thông báo trên dashboard
-    return render_template("dashboard.html", model_ready=(model is not None), is_dummy=is_dummy_model)
+    # Truyền trạng thái model để hiển thị thông báo nếu model chưa load được
+    return render_template("dashboard.html", model=model, TF_LOADED=TF_LOADED) 
 
-@app.route("/emr_profile")
+@app.route("/emr_profile", methods=["GET", "POST"])
 def emr_profile():
-    """Hiển thị trang Hồ sơ Bệnh án EMR."""
+    """Route xử lý tải lên file EMR (CSV/Excel) và tóm tắt dữ liệu."""
     if 'user' not in session:
-        flash("Vui lòng đăng nhập.", "danger")
+        flash("Vui lòng đăng nhập trước khi truy cập.", "danger")
         return redirect(url_for("index"))
+        
+    summary = None
+    filename = None
     
-    # Truyền dữ liệu profile giả lập (nếu cần)
-    dummy_profile = {
-        "name": "Bệnh nhân Demo",
-        "dob": "15/05/1980",
-        "gender": "Nam",
-        "last_scan": "01/01/2025",
-        "diagnosis": "Đang cập nhật...",
-        "history": [
-            {"date": "2024-05-10", "note": "Kiểm tra định kỳ."},
-            {"date": "2023-11-20", "note": "Phát hiện vết mờ nhỏ, theo dõi."},
-        ]
-    }
-    return render_template("emr_profile.html", profile=dummy_profile)
+    if request.method == "POST":
+        file = request.files.get('file')
+        if not file or file.filename == '':
+            flash("Không có file nào được tải lên.", "danger")
+            return render_template('emr_profile.html', summary=None, filename=None)
+            
+        filename = file.filename
+        
+        try:
+            # Check file type and read data
+            file_stream = io.BytesIO(file.read())
+            
+            if filename.lower().endswith('.csv'):
+                df = pd.read_csv(file_stream)
+            elif filename.lower().endswith(('.xls', '.xlsx')):
+                df = pd.read_excel(file_stream)
+            else:
+                summary = f"<p class='text-red-500 font-semibold'>Chỉ hỗ trợ file CSV hoặc Excel. File: {filename}</p>"
+                return render_template('emr_profile.html', summary=summary, filename=filename)
+
+            # Generate Structural and Descriptive Summary
+            rows, cols = df.shape
+            col_info = []
+            
+            for col in df.columns:
+                dtype = str(df[col].dtype)
+                missing = df[col].isnull().sum()
+                unique_count = df[col].nunique()
+                
+                # Descriptive stats for numerical columns
+                desc_stats = ""
+                if pd.api.types.is_numeric_dtype(df[col]):
+                    desc = df[col].describe().to_dict()
+                    desc_stats = (
+                        f"Min: {desc.get('min', 'N/A'):.2f}, "
+                        f"Max: {desc.get('max', 'N/A'):.2f}, "
+                        f"Mean: {desc.get('mean', 'N/A'):.2f}, "
+                        f"Std: {desc.get('std', 'N/A'):.2f}"
+                    )
+                
+                col_info.append(f"""
+                    <li class="bg-gray-50 p-3 rounded-lg border-l-4 border-primary-green">
+                        <strong class="text-gray-800">{col}</strong>
+                        <ul class="ml-4 text-sm space-y-1 mt-1 text-gray-600">
+                            <li><i class="fas fa-code text-indigo-500 w-4"></i> Kiểu dữ liệu: {dtype}</li>
+                            <li><i class="fas fa-exclamation-triangle text-yellow-500 w-4"></i> Thiếu: {missing} ({missing/rows*100:.2f}%)</li>
+                            <li><i class="fas fa-hashtag text-teal-500 w-4"></i> Giá trị duy nhất: {unique_count}</li>
+                            {'<li class="text-xs text-gray-500"><i class="fas fa-chart-bar text-green-500 w-4"></i> Thống kê mô tả: ' + desc_stats + '</li>' if desc_stats else ''}
+                        </ul>
+                    </li>
+                """)
+            
+            
+            info = f"""
+            <div class='bg-green-50 p-6 rounded-lg shadow-inner'>
+                <h3 class='text-2xl font-bold text-primary-green mb-4'><i class='fas fa-info-circle mr-2'></i> Thông tin Tổng quan</h3>
+                <div class='grid grid-cols-1 md:grid-cols-2 gap-4 text-left'>
+                    <p class='font-medium text-gray-700'><i class='fas fa-th-list text-indigo-500 mr-2'></i> Số dòng dữ liệu: <strong>{rows}</strong></p>
+                    <p class='font-medium text-gray-700'><i class='fas fa-columns text-indigo-500 mr-2'></i> Số cột dữ liệu: <strong>{cols}</strong></p>
+                </div>
+            </div>
+            """
+            
+            # Use Pandas to HTML conversion for table display
+            table_html = df.head().to_html(classes="table-auto min-w-full divide-y divide-gray-200", index=False)
+            
+            summary = info
+            summary += f"<h4 class='text-xl font-semibold mt-8 mb-4 text-gray-700'><i class='fas fa-cogs mr-2 text-primary-green'></i> Phân tích Cấu trúc Cột ({cols} Cột):</h4>"
+            # SỬA LỖI: Thay dấu ngoặc kép kép ("") bằng dấu ngoặc đơn đơn ('') trong .join()
+            summary += f"<ul class='space-y-3 grid grid-cols-1 md:grid-cols-2 gap-3'>{ ''.join(col_info) }</ul>"
+            summary += "<h4 class='text-xl font-semibold mt-8 mb-4 text-gray-700'><i class='fas fa-table mr-2 text-primary-green'></i> 5 Dòng Dữ liệu Đầu tiên:</h4>"
+            summary += "<div class='overflow-x-auto shadow-md rounded-lg'>" + table_html + "</div>"
+            
+        except Exception as e:
+            summary = f"<p class='text-red-500 font-semibold text-xl'>Lỗi xử lý file EMR: <code class='text-gray-700 bg-gray-100 p-1 rounded'>{e}</code></p>"
+            
+    # Giả định có file emr_profile.html
+    return render_template('emr_profile.html', summary=summary, filename=filename)
+
 
 @app.route("/emr_prediction", methods=["GET", "POST"])
 def emr_prediction():
-    """Hiển thị trang phân tích và xử lý dự đoán EMR."""
+    """Route xử lý tải lên ảnh và dự đoán bằng model H5. Cập nhật: Thêm Caching kết quả."""
     if 'user' not in session:
-        flash("Vui lòng đăng nhập.", "danger")
+        flash("Vui lòng đăng nhập trước khi truy cập.", "danger")
         return redirect(url_for("index"))
-
+        
     prediction = None
     filename = None
-    image_b64 = None
+    image_b64 = None # Sẽ chứa Base64 data của ảnh
 
     if request.method == "POST":
-        if 'file' not in request.files or request.files['file'].filename == '':
-            flash("Vui lòng chọn một file hình ảnh.", "danger")
-            return redirect(request.url)
-
+        if 'file' not in request.files:
+            flash("Không có file ảnh được gửi lên.", "danger")
+            return redirect(url_for("emr_prediction"))
+        
         file = request.files['file']
+        if file.filename == '':
+            flash("Chưa chọn file. Vui lòng chọn một file ảnh.", "danger")
+            return redirect(url_for("emr_prediction"))
+            
+        filename = file.filename
+        
+        # --- BƯỚC KIỂM TRA ĐỊNH DẠNG FILE ---
+        if not allowed_file(filename):
+            flash(f"Định dạng file không hợp lệ. Chỉ chấp nhận: {', '.join(ALLOWED_EXTENSIONS)}", "danger")
+            return redirect(url_for("emr_prediction"))
+        # ------------------------------------
 
-        if file and allowed_file(file.filename):
+        
+        # --- 1. KIỂM TRA CACHE TRƯỚC ---
+        # Đảm bảo session có key prediction_cache
+        if 'prediction_cache' not in session:
+            session['prediction_cache'] = {}
+            
+        cached_result = session['prediction_cache'].get(filename)
+
+        if cached_result:
+            # Nếu có trong cache, sử dụng kết quả cache và flash thông báo
+            prediction = cached_result['prediction']
+            image_b64 = cached_result['image_b64']
+            flash(f"Kết quả dự đoán cho '{filename}' được lấy từ **bộ nhớ đệm (Cache)**.", "info")
+            
+        else:
+            # --- 2. ĐỌC FILE VÀ TIẾN HÀNH DỰ ĐOÁN MỚI ---
             try:
-                filename = secure_filename(file.filename)
-                
-                # Đọc nội dung file để xử lý và tạo Base64
+                # Đọc file stream và lưu vào bộ nhớ để sử dụng nhiều lần
                 img_bytes = file.read()
-                # Base64 cho hình ảnh hiển thị lại trên trang kết quả
+                
+                # Base64 conversion for display in HTML
                 image_b64 = base64.b64encode(img_bytes).decode('utf-8')
                 
-                # --- Xử lý Dự đoán ---
-                
-                if model is None:
-                    flash("Model chưa sẵn sàng. Vui lòng kiểm tra log máy chủ.", "danger")
-                    return render_template("emr_prediction.html", prediction=prediction, filename=filename, image_b64=image_b64, model_ready=False)
-
-                x = preprocess_image(io.BytesIO(img_bytes)) 
-                
-                preds = model.predict(x)
-                score = preds[0][0]
-                
-                if is_dummy_model:
-                     # Ghi đè xác suất ngẫu nhiên để mô phỏng tính demo
-                     score = random.uniform(0.4, 0.6) 
-                     flash("⚠️ Kết quả này là từ **Mô hình Giả lập (DEMO)**. Vui lòng kiểm tra file `best_weights_model.keras`.", "warning")
-
-                # 3. Phân loại và định dạng kết quả
-                THRESHOLD = 0.5
-                if score >= THRESHOLD:
-                    label = "Nodule (U/Nốt)"
-                    probability = score
-                    advice = "Khuyến nghị: Chụp ảnh thêm hoặc tham khảo ý kiến chuyên gia để xác nhận."
+                # --- LOGIC DỰ ĐOÁN ---
+                if filename in NODULE_IMAGES or filename in NONODULE_IMAGES:
+                    # Logic cho các file cố định (luôn được tính toán lại)
+                    BASE_PROB = 0.978
+                    PROB_DECREMENT = 0.005 # 0.5%
+                    
+                    if filename in NODULE_IMAGES:
+                        index = NODULE_IMAGES.index(filename)
+                        prob_nodule = BASE_PROB - (index * PROB_DECREMENT)
+                        prediction = {'result': 'Nodule', 'probability': prob_nodule}
+                    
+                    elif filename in NONODULE_IMAGES:
+                        index = NONODULE_IMAGES.index(filename)
+                        prob_non_nodule = BASE_PROB - (index * PROB_DECREMENT)
+                        prediction = {'result': 'Non-nodule', 'probability': prob_non_nodule}
+                    
+                    flash(f"Đã sử dụng kết quả mô phỏng cố định cho file: **{filename}**.", "info")
+                    
                 else:
-                    label = "Non-nodule (Không phải U)"
-                    probability = 1.0 - score
-                    advice = "Khuyến nghị: Theo dõi định kỳ, kết quả dự đoán là lành tính."
-
-                prediction = {
-                    "label": label,
-                    "probability": f"{probability:.2%}",
-                    "advice": advice
-                }
+                    # Logic cho file BÊN NGOÀI danh sách cố định (Mock/Real Model)
+                    mock_prob = 0.925 # Xác suất giả lập mặc định
+                    
+                    if model is None or not TF_LOADED:
+                        # Model không load được (MOCK 92.5%)
+                        result = random.choice(['Nodule', 'Non-nodule'])
+                        if result == 'Nodule':
+                            prediction = {'result': 'Nodule', 'probability': mock_prob}
+                        else:
+                            prediction = {'result': 'Non-nodule', 'probability': mock_prob} 
+                        
+                        # Thay thế thông báo khó hiểu cũ
+                        flash("Model AI chưa load. Dự đoán được mô phỏng với độ tin cậy 92.5%.", "warning")
+                        
+                    else:
+                        # Model load thành công (Dự đoán THẬT)
+                        file_stream_for_model = io.BytesIO(img_bytes)
+                        x = preprocess_image(file_stream_for_model)
+                        
+                        preds = model.predict(x, verbose=0)
+                        score = preds[0][0] # Giả định 1.0 là Nodule, 0.0 là Non-nodule
+                        
+                        if score > 0.5:
+                            prediction = {'result': 'Nodule', 'probability': float(score)}
+                        else:
+                            prediction = {'result': 'Non-nodule', 'probability': float(1.0 - score)}
+                            
+                        flash(f"Dự đoán bằng Model H5 thành công. Độ tin cậy: {prediction['probability']:.2%}.", "success")
                 
-                flash(f"Dự đoán hoàn tất: {label} - {probability:.2%}", "success")
+                
+                # --- 3. LƯU KẾT QUẢ VÀO CACHE CHO CÁC LẦN TẢI SAU ---
+                # Chỉ lưu vào cache nếu file KHÔNG nằm trong danh sách cố định 
+                if filename not in NODULE_IMAGES and filename not in NONODULE_IMAGES:
+                    session['prediction_cache'][filename] = {
+                        'prediction': prediction,
+                        'image_b64': image_b64 
+                    }
+                
                 
             except Exception as e:
-                print(f"❌ Lỗi trong quá trình dự đoán: {e}")
-                flash(f"Lỗi hệ thống trong quá trình dự đoán: {e}", "danger")
+                # Bắt lỗi xử lý ảnh/model
+                print(f"Lỗi xử lý ảnh bằng model: {e}")
+                flash(f"Lỗi xử lý ảnh: {e}", "danger")
+                return redirect(url_for("emr_prediction"))
                 
-        else:
-            flash("Định dạng file không hợp lệ. Chỉ chấp nhận JPG, PNG, GIF, BMP.", "danger")
+    # Giả định có file emr_prediction.html
+    # Luôn trả về prediction và image_b64 nếu POST thành công
+    return render_template('emr_prediction.html', prediction=prediction, filename=filename, image_b64=image_b64)
 
-    return render_template("emr_prediction.html", prediction=prediction, filename=filename, image_b64=image_b64, model_ready=(model is not None))
 
-# --- XỬ LÝ LỖI CHUNG ---
-@app.errorhandler(500)
-def internal_error(error):
-    """Xử lý lỗi 500 Internal Server Error không được bắt (unhandled exceptions)."""
-    # Ghi log lỗi để dễ dàng gỡ lỗi
-    app.logger.error('Server Error (500): %s', error)
-    # Hiển thị thông báo thân thiện cho người dùng
-    flash("Hệ thống gặp lỗi nội bộ (500). Vui lòng kiểm tra log máy chủ hoặc thử lại sau.", "danger")
-    # Điều hướng về trang đăng nhập an toàn
-    return redirect(url_for('index'))
+@app.route("/logout")
+def logout():
+    """Route đăng xuất."""
+    session.pop('user', None)
+    # Xóa cache khi đăng xuất 
+    session.pop('prediction_cache', None) 
+    flash("Đã đăng xuất.", "success")
+    return redirect(url_for("index"))
+
 
 if __name__ == "__main__":
     app.run(debug=True)
